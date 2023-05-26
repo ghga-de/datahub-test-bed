@@ -13,24 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""A config fixture"""
+
+"""A collection of CLI utilities"""
+
+import typer
 
 
-from typing import Generator
+def echo_success(message: str):
+    """Print a success message."""
 
-import pytest
-from pydantic import SecretStr
-
-from src.s3_readiness_test import Config
+    styled_message = typer.style(text=message, fg=typer.colors.GREEN)
+    typer.echo(styled_message)
 
 
-@pytest.fixture
-def config_fixture() -> Generator[Config, None, None]:
-    """Generate a test Config file."""
+def echo_failure(message: str):
+    """Print a failure message."""
 
-    yield Config(
-        s3_endpoint_url=SecretStr("s3://test_url"),
-        s3_access_key_id=SecretStr("test_access_key"),
-        s3_secret_access_key=SecretStr("test_secret_key"),
-        bucket_id="test_bucket",
-    )
+    styled_message = typer.style(text=message, fg=typer.colors.RED)
+    typer.echo(styled_message)
+
+
+run = typer.run
