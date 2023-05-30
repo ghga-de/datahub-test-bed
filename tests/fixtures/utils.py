@@ -13,25 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""A config fixture"""
 
+from pathlib import Path
 
-from typing import Generator
-
-import pytest
-import yaml
-
-from src.s3_readiness_test import Config
-from tests.fixtures.utils import BASE_DIR
-
-TEST_CONFIG_YAML = BASE_DIR / "test_config.yaml"
-
-
-@pytest.fixture
-def config_fixture() -> Generator[Config, None, None]:
-    """Generate a test Config file."""
-
-    with open(TEST_CONFIG_YAML, "r", encoding="utf-8") as config_file:
-        test_config = yaml.safe_load(config_file)
-
-    yield Config(**test_config)
+BASE_DIR = Path(__file__).parent.resolve()

@@ -1,0 +1,5 @@
+s3_endpoint_url: s3://test_url
+s3_access_key_id: test_access_key
+s3_secret_access_key: test_secret_key
+bucket_id: test_bucket
+part_size: 16
