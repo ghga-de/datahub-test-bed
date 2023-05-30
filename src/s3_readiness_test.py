@@ -56,6 +56,7 @@ def configure_session() -> requests.Session:
 
 
 LOGGER = logging.getLogger("s3_upload")
+LOGGER.setLevel(logging.INFO)
 PART_SIZE = 16 * 1024**2
 SESSION = configure_session()
 
@@ -159,15 +160,17 @@ class ChunkedUploader:
                 encrypted_file_size=encrypted_file_size,
                 part_size=self.config.part_size,
             ) as upload:
-                LOGGER.info("(1/7) Initialized file uplod for %s.", upload.file_id)
+                LOGGER.info("(1/7) Initialized file upload for %s.", upload.file_id)
                 for part_number, part in enumerate(
                     self.encryptor.process_file(file=file), start=1
                 ):
                     await upload.send_part(part_number=part_number, part=part)
 
-                    delta = time() - start
+                    delta_for_part = time() - start
                     avg_speed = (
-                        part_number * (self.config.part_size / 1024**2) / delta
+                        part_number
+                        * (self.config.part_size / 1024**2)
+                        / delta_for_part
                     )
                     LOGGER.info(
                         "(2/7) Processing upload for file part %i/%i (%.2f MiB/s)",
@@ -181,7 +184,12 @@ class ChunkedUploader:
                         + f"Is: {self.encryptor.encrypted_file_size}\n"
                         + f"Should be: {encrypted_file_size}"
                     )
-                LOGGER.info("(3/7) Finished upload for %s.", upload.file_id)
+                delta = time() - start
+                LOGGER.info(
+                    "(3/7) Finished upload for %s in %.2f seconds",
+                    upload.file_id,
+                    delta,
+                )
 
 
 class ChunkedDownloader:
@@ -214,6 +222,7 @@ class ChunkedDownloader:
             headers = {"Range": f"bytes={start}-{stop}"}
             LOGGER.debug("Downloading part number %i. %s", part_no, headers)
             response = SESSION.get(download_url, timeout=60, headers=headers)
+
             yield response.content
 
     async def download(self):
@@ -267,17 +276,17 @@ class Decryptor:
         )
 
     def process_parts(self, download_files: partial[Generator[bytes, None, None]]):
-        """Encrypt and upload file parts."""
+        """download and decrypt file parts."""
         unprocessed_bytes = b""
         download_buffer = b""
         start = time()
 
         for part_number, file_part in enumerate(download_files()):
-            # process unencrypted
+            # process encrypted
             self.checksums.update_encrypted(file_part)
             unprocessed_bytes += file_part
 
-            # encrypt in chunks
+            # decrypt in chunks
             decrypted_bytes, unprocessed_bytes = self._decrypt(unprocessed_bytes)
             download_buffer += decrypted_bytes
 
@@ -287,8 +296,8 @@ class Decryptor:
                 self.checksums.update_unencrypted(current_part)
                 download_buffer = download_buffer[self.part_size :]
 
-            delta = time() - start
-            avg_speed = (part_number * (self.part_size / 1024**2)) / delta
+            delta_for_part = time() - start
+            avg_speed = (part_number * (self.part_size / 1024**2)) / delta_for_part
             LOGGER.info(
                 "(5/7) Downloading part %i/%i (%.2f MiB/s)",
                 part_number,
@@ -307,6 +316,9 @@ class Decryptor:
 
         if download_buffer:
             self.checksums.update_unencrypted(download_buffer)
+
+        delta = time() - start
+        LOGGER.info("Download finished in %.2f seconds", delta)
 
 
 class Encryptor:
@@ -548,7 +560,7 @@ def check_adjust_part_size(config: Config, file_size: int):
     elif part_size > upper_bound:
         part_size = upper_bound
 
-    # fixed list for now, maybe change to somthing more meaningful
+    # fixed list for now, maybe change to something more meaningful
     sizes_mib = [2**x for x in range(3, 13)]
     sizes = [size * 1024**2 for size in sizes_mib]
 
@@ -566,7 +578,7 @@ def check_adjust_part_size(config: Config, file_size: int):
 
     if part_size != config.part_size:
         LOGGER.info(
-            "Part size was adjusted from %iMiB to %iMiB.",
+            "Part size was adjusted from %sMiB to %sMiB.",
             config.part_size,
             part_size / 1024**2,
         )
