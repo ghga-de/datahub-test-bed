@@ -21,3 +21,4 @@ httpx==0.23.3
 boto3==1.24.93
 hexkit==0.9.3
 ghga-connector==0.2.12
+ghga-service-commons==0.3.2

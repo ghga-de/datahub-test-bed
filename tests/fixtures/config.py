@@ -29,7 +29,7 @@ TEST_CONFIG_YAML = BASE_DIR / "test_config.yaml"
 
 @pytest.fixture
 def config_fixture() -> Generator[Config, None, None]:
-    """Generate a test Config file."""
+    """Read config from test_config.yaml"""
 
     with open(TEST_CONFIG_YAML, "r", encoding="utf-8") as config_file:
         test_config = yaml.safe_load(config_file)
