@@ -400,7 +400,6 @@ def summarize(  # pylint: disable=too-many-arguments
     original_path: Path,
     part_size: int,
     file_secret: bytes,
-    checksums: Checksums,
     unencrypted_size: int,
     encrypted_size: int,
 ):
@@ -412,18 +411,12 @@ def summarize(  # pylint: disable=too-many-arguments
     output["Original filesystem path"] = str(original_path.resolve())
     output["Part Size"] = f"{part_size // 1024**2} MiB"
     output["Unencrypted file size"] = f"{unencrypted_size} bytes"
-    output["Encrypted file size"] = f"{encrypted_size} bytes"
+    output[
+        "Encrypted file size"
+    ] = f"{encrypted_size} bytes ({100 * (encrypted_size / unencrypted_size - 1):.2f}% change)"
     output["Symmetric file encryption secret"] = base64.b64encode(file_secret).decode(
         "utf-8"
     )
-    (
-        unencrypted_checksum,
-        encrypted_md5_checksums,
-        encrypted_sha256_checksums,
-    ) = checksums.get()
-    output["Unencrypted file checksum"] = unencrypted_checksum
-    output["Encrypted file part checksums (MD5)"] = encrypted_md5_checksums
-    output["Encrypted file part checksums (SHA256)"] = encrypted_sha256_checksums
 
     LOGGER.info("SUMMARY:")
     for key, val in output.items():
@@ -664,7 +657,6 @@ async def async_main(input_path: Path, config: Config, verbose: bool, debug: boo
         original_path=input_path,
         part_size=config.part_size,
         file_secret=uploader.encryptor.file_secret,
-        checksums=uploader.encryptor.checksums,
         unencrypted_size=file_size,
         encrypted_size=uploader.encryptor.encrypted_file_size,
     )
