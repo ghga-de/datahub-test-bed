@@ -22,13 +22,11 @@ objectstorage.
 import asyncio
 import base64
 import hashlib
-import json
 import logging
 import math
 import os
 import subprocess  # nosec
 import sys
-from dataclasses import dataclass
 from functools import partial
 from io import BufferedReader
 from pathlib import Path
@@ -160,7 +158,7 @@ class ChunkedUploader:
                 encrypted_file_size=encrypted_file_size,
                 part_size=self.config.part_size,
             ) as upload:
-                LOGGER.info("(1/7) Initialized file upload for %s.", upload.file_id)
+                LOGGER.info("UPLOAD: Initialized file upload for %s.", upload.file_id)
                 for part_number, part in enumerate(
                     self.encryptor.process_file(file=file), start=1
                 ):
@@ -173,7 +171,7 @@ class ChunkedUploader:
                         / delta_for_part
                     )
                     LOGGER.info(
-                        "(2/7) Processing upload for file part %i/%i (%.2f MiB/s)",
+                        "UPLOAD: Processing upload for file part %i/%i (%.2f MiB/s)",
                         part_number,
                         num_parts,
                         avg_speed,
@@ -184,15 +182,13 @@ class ChunkedUploader:
                         + f"Is: {self.encryptor.encrypted_file_size}\n"
                         + f"Should be: {encrypted_file_size}"
                     )
-                LOGGER.info(
-                    "(3/7) Finished upload for %s",
-                    upload.file_id,
-                )
+
                 delta = time() - start
                 LOGGER.info(
-                    "(3/7) Uploaded %.2f MiB in %.2f seconds (encrypted size)",
+                    "UPLOAD: Uploaded %.2f MiB in %.2f sec (encrypted size) for %s",
                     encrypted_file_size / 1024**2,
                     delta,
+                    upload.file_id,
                 )
 
 
@@ -231,7 +227,7 @@ class ChunkedDownloader:
 
     async def download(self):
         """Download file in parts and validate checksums"""
-        LOGGER.info("(4/7) Downloading file %s for validation.", self.file_id)
+        LOGGER.info("DOWNLOAD: Downloading file %s for validation.", self.file_id)
         download_url = await self.storage.get_object_download_url(
             bucket_id=self.config.bucket_id, object_id=self.file_id
         )
@@ -245,7 +241,7 @@ class ChunkedDownloader:
 
         delta = time() - start
         LOGGER.info(
-            "(6/7) Downloaded %.2f MiB in %.2f seconds (encrypted size)",
+            "DOWNLOAD: Downloaded %.2f MiB in %.2f sec (encrypted size)",
             self.file_size / (1024**2),
             delta,
         )
@@ -257,7 +253,7 @@ class ChunkedDownloader:
             raise ValueError(
                 f"Checksum mismatch:\nUpload:\n{checkums}\nDownload:\n{self.target_checksums}"
             )
-        LOGGER.info("(6/7) Succesfully validated checksums for %s.", self.file_id)
+        LOGGER.info("DOWNLOAD: Succesfully validated checksums for %s.", self.file_id)
 
 
 class Decryptor:
@@ -311,7 +307,7 @@ class Decryptor:
             delta_for_part = time() - start
             avg_speed = (part_number * (self.part_size / 1024**2)) / delta_for_part
             LOGGER.info(
-                "(5/7) Downloading part %i/%i (%.2f MiB/s)",
+                "DOWNLOAD: Downloading part %i/%i (%.2f MiB/s)",
                 part_number + 1,
                 self.num_parts,
                 avg_speed,
@@ -399,51 +395,42 @@ class Encryptor:
             yield upload_buffer
 
 
-@dataclass
-class Metadata:  # pylint: disable=too-many-instance-attributes
-    """Container class for output metadata"""
+def summarize(  # pylint: disable=too-many-arguments
+    elapsed: float,
+    alias: str,
+    file_uuid: str,
+    original_path: Path,
+    part_size: int,
+    file_secret: bytes,
+    checksums: Checksums,
+    unencrypted_size: int,
+    encrypted_size: int,
+):
+    """Log overview information"""
 
-    alias: str
-    file_uuid: str
-    original_path: Path
-    part_size: int
-    file_secret: bytes
-    checksums: Checksums
-    unencrypted_size: int
-    encrypted_size: int
+    output: dict[str, Any] = {}
+    output["Elapsed time"] = f"{elapsed:.2f} seconds"
+    output["Alias"] = alias
+    output["File UUID"] = file_uuid
+    output["Original filesystem path"] = str(original_path.resolve())
+    output["Part Size"] = f"{part_size // 1024**2} MiB"
+    output["Unencrypted file size"] = unencrypted_size
+    output["Encrypted file size"] = encrypted_size
+    output["Symmetric file encryption secret"] = base64.b64encode(file_secret).decode(
+        "utf-8"
+    )
+    (
+        unencrypted_checksum,
+        encrypted_md5_checksums,
+        encrypted_sha256_checksums,
+    ) = checksums.get()
+    output["Unencrypted file checksum"] = unencrypted_checksum
+    output["Encrypted file part checksums (MD5)"] = encrypted_md5_checksums
+    output["Encrypted file part checksums (SHA256)"] = encrypted_sha256_checksums
 
-    def serialize(self, output_dir: Path):
-        """Serialize metadata to file"""
-
-        output: dict[str, Any] = {}
-        output["Alias"] = self.alias
-        output["File UUID"] = self.file_uuid
-        output["Original filesystem path"] = str(self.original_path.resolve())
-        output["Part Size"] = f"{self.part_size // 1024**2} MiB"
-        output["Unencrypted file size"] = self.unencrypted_size
-        output["Encrypted file size"] = self.encrypted_size
-        output["Symmetric file encryption secret"] = base64.b64encode(
-            self.file_secret
-        ).decode("utf-8")
-        (
-            unencrypted_checksum,
-            encrypted_md5_checksums,
-            encrypted_sha256_checksums,
-        ) = self.checksums.get()
-        output["Unencrypted file checksum"] = unencrypted_checksum
-        output["Encrypted file part checksums (MD5)"] = encrypted_md5_checksums
-        output["Encrypted file part checksums (SHA256)"] = encrypted_sha256_checksums
-
-        if not output_dir.exists():
-            output_dir.mkdir(parents=True)
-
-        output_path = output_dir / f"{self.alias}.json"
-
-        LOGGER.info("(7/7) Writing metadata to %s.", output_path)
-        # owner read-only
-        with output_path.open("w") as file:
-            json.dump(output, file, indent=2)
-        os.chmod(path=output_path, mode=0o400)
+    LOGGER.info("SUMMARY:")
+    for key, val in output.items():
+        LOGGER.info("\t %s: %s", key, val)
 
 
 class MultipartUpload:
@@ -648,9 +635,10 @@ async def async_main(input_path: Path, alias: str, config: Config, verbose: bool
     file_size = input_path.stat().st_size
     check_adjust_part_size(config=config, file_size=file_size)
 
-    start = time()
     if not verbose:
         LOGGER.addFilter(filter_part_logs)
+
+    start = time()
 
     uploader = ChunkedUploader(
         input_path=input_path,
@@ -670,11 +658,25 @@ async def async_main(input_path: Path, alias: str, config: Config, verbose: bool
     )
     await downloader.download()
 
-    delta = time() - start
+    elapsed = time() - start
 
-    LOGGER.info("(7/7) Entire process took %.2f seconds", delta)
+    summarize(
+        elapsed=elapsed,
+        alias=uploader.alias,
+        file_uuid=uploader.file_id,
+        original_path=input_path,
+        part_size=config.part_size,
+        file_secret=uploader.encryptor.file_secret,
+        checksums=uploader.encryptor.checksums,
+        unencrypted_size=file_size,
+        encrypted_size=uploader.encryptor.encrypted_file_size,
+    )
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(message)s",
+        datefmt="%d/%m/%Y %H:%M:%S",
+    )
     typer.run(main)
