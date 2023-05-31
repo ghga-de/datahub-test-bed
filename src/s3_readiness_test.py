@@ -586,6 +586,9 @@ def main(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Display info for individual file parts"
     ),
+    debug: bool = typer.Option(
+        False, "--debug", "-d", help="Enable debug-level logging"
+    ),
 ):
     """
     Custom script to encrypt data using Crypt4GH and directly uploading it to S3
@@ -594,7 +597,9 @@ def main(
 
     config = load_config_yaml(config_path)
 
-    asyncio.run(async_main(input_path=input_path, config=config, verbose=verbose))
+    asyncio.run(
+        async_main(input_path=input_path, config=config, verbose=verbose, debug=debug)
+    )
 
 
 def load_config_yaml(path: Path) -> Config:
@@ -610,7 +615,7 @@ def filter_part_logs(record: logging.LogRecord) -> bool:
     return "Part No." not in record.msg
 
 
-async def async_main(input_path: Path, config: Config, verbose: bool):
+async def async_main(input_path: Path, config: Config, verbose: bool, debug: bool):
     """
     Run encryption, upload and validation.
     """
@@ -628,6 +633,9 @@ async def async_main(input_path: Path, config: Config, verbose: bool):
 
     if not verbose:
         LOGGER.addFilter(filter_part_logs)
+
+    if debug:
+        LOGGER.setLevel(logging.DEBUG)
 
     start = time()
 

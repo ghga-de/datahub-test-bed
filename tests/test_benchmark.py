@@ -53,5 +53,8 @@ async def test_process(config_fixture: Config):  # noqa: F811
         sys.set_int_max_str_digits(TEST_FILE_SIZE)
         with big_temp_file(TEST_FILE_SIZE) as file:
             await async_main(
-                input_path=Path(file.name), alias=ALIAS, config=config, verbose=True
+                input_path=Path(file.name),
+                config=config,
+                verbose=True,
+                debug=True,
             )
