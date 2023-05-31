@@ -26,7 +26,7 @@ from hexkit.providers.s3.testutils import (  # type: ignore
 from pydantic import SecretStr
 from testcontainers.localstack import LocalStackContainer  # type: ignore
 
-from src.s3_readiness_test import Config, async_main, objectstorage
+from src.s3_upload_test import Config, async_main, objectstorage
 from tests.fixtures.config import config_fixture  # noqa: F401
 
 ALIAS = "test_file"

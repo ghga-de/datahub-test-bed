@@ -57,6 +57,8 @@ LOGGER = logging.getLogger("s3_upload")
 LOGGER.setLevel(logging.INFO)
 PART_SIZE = 16 * 1024**2
 SESSION = configure_session()
+upload_times = []
+download_times = []
 
 
 def expand_env_vars_in_path(path: Path) -> Path:
@@ -175,6 +177,7 @@ class ChunkedUploader:
                         num_parts,
                         avg_speed,
                     )
+                    upload_times.append(delta_for_part)
                 if encrypted_file_size != self.encryptor.encrypted_file_size:
                     raise ValueError(
                         "Mismatch between actual and theoretical encrypted part size:\n"
@@ -311,6 +314,7 @@ class Decryptor:
                 self.num_parts,
                 avg_speed,
             )
+            download_times.append(delta_for_part)
 
         # process dangling bytes
         if unprocessed_bytes:
@@ -407,6 +411,16 @@ def summarize(  # pylint: disable=too-many-arguments
 
     output: dict[str, Any] = {}
     output["Elapsed time"] = f"{elapsed:.2f} seconds"
+    output["Avg Part Upload"] = f"{sum(upload_times)/len(upload_times):.2f} seconds"
+    output[
+        "Fastest, Slowest Upload"
+    ] = f"{min(upload_times):.2f} seconds, {max(upload_times):.2f} seconds"
+    output[
+        "Avg Part Download"
+    ] = f"{sum(download_times)/len(download_times):.2f} seconds"
+    output[
+        "Fastest, Slowest Download"
+    ] = f"{min(download_times):.2f} seconds, {max(download_times):.2f} seconds"
     output["File UUID"] = file_uuid
     output["Original filesystem path"] = str(original_path.resolve())
     output["Part Size"] = f"{part_size // 1024**2} MiB"

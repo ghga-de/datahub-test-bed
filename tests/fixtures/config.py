@@ -21,7 +21,7 @@ from typing import Generator
 import pytest
 import yaml
 
-from src.s3_readiness_test import Config
+from src.s3_upload_test import Config
 from tests.fixtures.utils import BASE_DIR
 
 TEST_CONFIG_YAML = BASE_DIR / "test_config.yaml"
