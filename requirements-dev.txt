@@ -1,1 +1,1 @@
-testcontainers[mongo,postgresql]==3.4.2
+testcontainers==3.4.2
