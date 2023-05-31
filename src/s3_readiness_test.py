@@ -171,7 +171,7 @@ class ChunkedUploader:
                         / delta_for_part
                     )
                     LOGGER.info(
-                        "UPLOAD: Processing upload for file part %i/%i (%.2f MiB/s)",
+                        "UPLOAD: Processing Part No. %i/%i (%.2f MiB/s)",
                         part_number,
                         num_parts,
                         avg_speed,
@@ -307,7 +307,7 @@ class Decryptor:
             delta_for_part = time() - start
             avg_speed = (part_number * (self.part_size / 1024**2)) / delta_for_part
             LOGGER.info(
-                "DOWNLOAD: Downloading part %i/%i (%.2f MiB/s)",
+                "DOWNLOAD: Downloading Part No. %i/%i (%.2f MiB/s)",
                 part_number + 1,
                 self.num_parts,
                 avg_speed,
@@ -414,8 +414,8 @@ def summarize(  # pylint: disable=too-many-arguments
     output["File UUID"] = file_uuid
     output["Original filesystem path"] = str(original_path.resolve())
     output["Part Size"] = f"{part_size // 1024**2} MiB"
-    output["Unencrypted file size"] = unencrypted_size
-    output["Encrypted file size"] = encrypted_size
+    output["Unencrypted file size"] = f"{unencrypted_size} bytes"
+    output["Encrypted file size"] = f"{encrypted_size} bytes"
     output["Symmetric file encryption secret"] = base64.b64encode(file_secret).decode(
         "utf-8"
     )
@@ -613,7 +613,7 @@ def load_config_yaml(path: Path) -> Config:
 
 def filter_part_logs(record: logging.LogRecord) -> bool:
     """Filter out part-level logs if verbose is disabled, allow all else"""
-    if "part" in record.msg:
+    if "Part No." in record.msg:
         return False
     return True
 
