@@ -184,10 +184,14 @@ class ChunkedUploader:
                         + f"Is: {self.encryptor.encrypted_file_size}\n"
                         + f"Should be: {encrypted_file_size}"
                     )
+                LOGGER.info(
+                    "(3/7) Finished upload for %s",
+                    upload.file_id,
+                )
                 delta = time() - start
                 LOGGER.info(
-                    "(3/7) Finished upload for %s in %.2f seconds",
-                    upload.file_id,
+                    "(3/7) Uploaded %.2f MiB in %.2f seconds (encrypted size)",
+                    encrypted_file_size / 1024**2,
                     delta,
                 )
 
@@ -236,7 +240,15 @@ class ChunkedDownloader:
             file_secret=self.file_secret, num_parts=num_parts, part_size=self.part_size
         )
         download_func = partial(self._download_parts, download_url=download_url)
+        start = time()
         decryptor.process_parts(download_func)
+
+        delta = time() - start
+        LOGGER.info(
+            "(6/7) Downloaded %.2f MiB in %.2f seconds (encrypted size)",
+            self.file_size / (1024**2),
+            delta,
+        )
         self.validate_checksums(checkums=decryptor.checksums)
 
     def validate_checksums(self, checkums: Checksums):
@@ -300,7 +312,7 @@ class Decryptor:
             avg_speed = (part_number * (self.part_size / 1024**2)) / delta_for_part
             LOGGER.info(
                 "(5/7) Downloading part %i/%i (%.2f MiB/s)",
-                part_number,
+                part_number + 1,
                 self.num_parts,
                 avg_speed,
             )
@@ -316,9 +328,6 @@ class Decryptor:
 
         if download_buffer:
             self.checksums.update_unencrypted(download_buffer)
-
-        delta = time() - start
-        LOGGER.info("Download finished in %.2f seconds", delta)
 
 
 class Encryptor:
@@ -576,7 +585,7 @@ def check_adjust_part_size(config: Config, file_size: int):
                 "Could not find a valid part size that would allow to upload all file parts"
             )
 
-    if part_size != config.part_size:
+    if part_size / 1024**2 != config.part_size:
         LOGGER.info(
             "Part size was adjusted from %sMiB to %sMiB.",
             config.part_size,
@@ -591,6 +600,9 @@ def main(
     input_path: Path = typer.Option(..., help="Local path of the input file"),
     alias: str = typer.Option(..., help="A human readable file alias"),
     config_path: Path = typer.Option(..., help="Path to a config YAML."),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Display info for individual file parts"
+    ),
 ):
     """
     Custom script to encrypt data using Crypt4GH and directly uploading it to S3
@@ -598,7 +610,10 @@ def main(
     """
 
     config = load_config_yaml(config_path)
-    asyncio.run(async_main(input_path=input_path, alias=alias, config=config))
+
+    asyncio.run(
+        async_main(input_path=input_path, alias=alias, config=config, verbose=verbose)
+    )
 
 
 def load_config_yaml(path: Path) -> Config:
@@ -609,11 +624,19 @@ def load_config_yaml(path: Path) -> Config:
     return Config(**config_dict)
 
 
-async def async_main(input_path: Path, alias: str, config: Config):
+def filter_part_logs(record: logging.LogRecord) -> bool:
+    """Filter out part-level logs if verbose is disabled, allow all else"""
+    if "part" in record.msg:
+        return False
+    return True
+
+
+async def async_main(input_path: Path, alias: str, config: Config, verbose: bool):
     """
     Run encryption, upload and validation.
     Prints metadata to <alias>.json in the specified output directory
     """
+
     if not input_path.exists():
         msg = f"No such file: {input_path.resolve()}"
         handle_superficial_error(msg=msg)
@@ -624,6 +647,10 @@ async def async_main(input_path: Path, alias: str, config: Config):
 
     file_size = input_path.stat().st_size
     check_adjust_part_size(config=config, file_size=file_size)
+
+    start = time()
+    if not verbose:
+        LOGGER.addFilter(filter_part_logs)
 
     uploader = ChunkedUploader(
         input_path=input_path,
@@ -642,6 +669,10 @@ async def async_main(input_path: Path, alias: str, config: Config):
         target_checksums=uploader.encryptor.checksums,
     )
     await downloader.download()
+
+    delta = time() - start
+
+    LOGGER.info("(7/7) Entire process took %.2f seconds", delta)
 
 
 if __name__ == "__main__":
