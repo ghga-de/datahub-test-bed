@@ -131,9 +131,8 @@ class ChunkedUploader:
     """Handler class dealing with upload functionality"""
 
     def __init__(
-        self, input_path: Path, alias: str, config: Config, unencrypted_file_size: int
+        self, input_path: Path, config: Config, unencrypted_file_size: int
     ) -> None:
-        self.alias = alias
         self.config = config
         self.input_path = input_path
         self.encryptor = Encryptor(self.config.part_size)
@@ -397,7 +396,6 @@ class Encryptor:
 
 def summarize(  # pylint: disable=too-many-arguments
     elapsed: float,
-    alias: str,
     file_uuid: str,
     original_path: Path,
     part_size: int,
@@ -410,7 +408,6 @@ def summarize(  # pylint: disable=too-many-arguments
 
     output: dict[str, Any] = {}
     output["Elapsed time"] = f"{elapsed:.2f} seconds"
-    output["Alias"] = alias
     output["File UUID"] = file_uuid
     output["Original filesystem path"] = str(original_path.resolve())
     output["Part Size"] = f"{part_size // 1024**2} MiB"
@@ -585,7 +582,6 @@ def check_adjust_part_size(config: Config, file_size: int):
 
 def main(
     input_path: Path = typer.Option(..., help="Local path of the input file"),
-    alias: str = typer.Option(..., help="A human readable file alias"),
     config_path: Path = typer.Option(..., help="Path to a config YAML."),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Display info for individual file parts"
@@ -598,9 +594,7 @@ def main(
 
     config = load_config_yaml(config_path)
 
-    asyncio.run(
-        async_main(input_path=input_path, alias=alias, config=config, verbose=verbose)
-    )
+    asyncio.run(async_main(input_path=input_path, config=config, verbose=verbose))
 
 
 def load_config_yaml(path: Path) -> Config:
@@ -613,15 +607,12 @@ def load_config_yaml(path: Path) -> Config:
 
 def filter_part_logs(record: logging.LogRecord) -> bool:
     """Filter out part-level logs if verbose is disabled, allow all else"""
-    if "Part No." in record.msg:
-        return False
-    return True
+    return "Part No." not in record.msg
 
 
-async def async_main(input_path: Path, alias: str, config: Config, verbose: bool):
+async def async_main(input_path: Path, config: Config, verbose: bool):
     """
     Run encryption, upload and validation.
-    Prints metadata to <alias>.json in the specified output directory
     """
 
     if not input_path.exists():
@@ -642,7 +633,6 @@ async def async_main(input_path: Path, alias: str, config: Config, verbose: bool
 
     uploader = ChunkedUploader(
         input_path=input_path,
-        alias=alias,
         config=config,
         unencrypted_file_size=file_size,
     )
@@ -662,7 +652,6 @@ async def async_main(input_path: Path, alias: str, config: Config, verbose: bool
 
     summarize(
         elapsed=elapsed,
-        alias=uploader.alias,
         file_uuid=uploader.file_id,
         original_path=input_path,
         part_size=config.part_size,
