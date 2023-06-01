@@ -19,10 +19,17 @@
 # S3 Upload Testbed
 
 ## Overview
-The S3 Upload Testbed is a script designed to evaluate the performance during file upload and download operations with an S3-compatible storage service. It provides key metrics such as elapsed duration and average file part processing time. These metrics are logged and displayed in the terminal. An important note is that the terms "upload" and "download" refer to "Encryption and Upload" and "Download and Decryption", respectively.
+The S3 Upload Testbed is a script designed to evaluate the performance during file
+upload and download operations with an S3-compatible storage service. It provides key
+metrics such as elapsed duration and average file part processing time. These metrics
+are logged and displayed in the terminal. An important note is that the terms "upload"
+and "download" refer to "Encryption and Upload" and "Download and Decryption", respectively.
+Additionally, the script does not perform any kind of file cleanup or removal upon completion.
+Please keep this in mind when running the script consecutively.
 
 ## Prerequisites
-Before running the script, you must prepare an S3 configuration YAML file (e.g., `config.yaml`). This file should include the following fields:
+Before running the script, you must prepare an S3 configuration YAML file
+(e.g., `config.yaml`). This file should include the following fields:
 
 - `s3_endpoint_url`: The endpoint to be used for S3 API calls within the script.
 - `s3_access_key_id`: The globally unique IAM user ID for the S3 instance.
@@ -52,11 +59,13 @@ Once you have prepared the configuration file, you can run the script using the 
 - --config-path: Specifies the path to the file containing the required S3 configuration values.
 
 **Optional:**
-- --verbose, -v: Enables verbose mode, which displays logs for individual file parts. By default, these logs are hidden.
+- --verbose, -v: Enables verbose mode, which displays logs for individual file parts.
+- By default, these logs are hidden.
 
 
 ### Example:
-For example, if the file to be uploaded is located at `/home/files/data.txt` and the config file is located at `/home/files/config.yaml`, the command to run the script would be:
+For example, if the file to be uploaded is located at `/home/files/data.txt` and the
+config file is located at `/home/files/config.yaml`, the command to run the script would be:
 
 The exact command to run the script would be:
 ```bash
