@@ -28,7 +28,40 @@ Additionally, the script does not perform any kind of file cleanup or removal up
 Please keep this in mind when running the script consecutively.
 
 ## Prerequisites
-Before running the script, you must prepare an S3 configuration YAML file
+
+Before running this test, your data hub should fulfill the following requirements:
+
+- An S3-compatible Object Storage is running and available via network.
+- A DevOps engineer who is familiar with the S3 API and basic unix administration is
+  available to assist with the execution of this test bed.
+- An empty bucket has been created that can be used for this test.
+- S3 credentials are available to access this bucket with read and write permissions.
+- A UNIX machine with access to the Object Storage API is available with Python 3.9 and
+  pip installed.
+
+
+## Troubleshooting and reporting issues:
+
+- Please first make sure that your configuration file is correct.
+- Check that your S3 Object Storage is accessible and your credentials
+   are valid for depositing files to the corresponding bucket. To do so, we recommend
+   using a tool such as WinSCP or FileZilla.
+- Check that the machine running the script can reach the S3 API by running e.g.:
+  `curl <path to the s3 api>`
+- Consult your local administrator of the S3 API.
+- If you have ruled out the possibility that the failure happens due to your local
+  setup, please open an issue in this repository.
+
+## Installation
+
+1. Git clone this repository and navigate with the terminal into the repository.
+2. Create a python virtual environment and activate it (for instruction see
+[here](https://realpython.com/python-virtual-environments-a-primer/)).
+3. Install dependencies using pip: `pip install -r ./requirements.txt`
+4. Validate that the script is ready: `./src/s3_upload_test.py`
+
+## Configuration
+Configuration parameters for this script are provided using a YAML file
 (e.g., `config.yaml`). This file should include the following fields:
 
 - `s3_endpoint_url`: The endpoint to be used for S3 API calls within the script.
@@ -50,7 +83,7 @@ part_size: 16
 ## Usage:
 Once you have prepared the configuration file, you can run the script using the following command:
 ```bash
-./s3_upload_test.py --input-path="path/to/file" --config-path="path/to/config_file" -v
+./src/s3_upload_test.py --input-path="path/to/file" --config-path="path/to/config_file" -v
 ```
 
 ### Command Line Arguments
@@ -69,10 +102,10 @@ config file is located at `/home/files/config.yaml`, the command to run the scri
 
 The exact command to run the script would be:
 ```bash
-./s3_upload_test.py --input-path="/home/files/data.txt" --config-path="/home/files/config.yaml"
+./src/s3_upload_test.py --input-path="/home/files/data.txt" --config-path="/home/files/config.yaml"
 ```
 
 Add -v or --verbose at the end of the command if you wish to view logs for individual file parts:
 ```bash
-./s3_upload_test.py --input-path="/home/files/data.txt" --config-path="/home/files/config.yaml" -v
+./src/s3_upload_test.py --input-path="/home/files/data.txt" --config-path="/home/files/config.yaml" -v
 ```
