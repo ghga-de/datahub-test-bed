@@ -55,7 +55,7 @@ Before running this test, your data hub should fullfill the following requiremen
 ## Installation
 
 1. Git clone this repository and navigate with the terminal into the repository.
-2. Create a python virtual environment and activate it (for instruction see 
+2. Create a python virtual environment and activate it (for instruction see
 [here](https://realpython.com/python-virtual-environments-a-primer/)).
 3. Install dependencies using pip: `pip install -r ./requirements.txt`
 4. Validate that the script is ready: `./src/s3_upload_test.py`
