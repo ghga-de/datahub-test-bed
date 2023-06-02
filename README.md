@@ -29,7 +29,7 @@ Please keep this in mind when running the script consecutively.
 
 ## Prerequisites
 
-Before running this test, your data hub should fullfill the following requirements:
+Before running this test, your data hub should fulfill the following requirements:
 
 - An S3-compatible Object Storage is running and available via network.
 - A DevOps engineer who is familiar with the S3 API and basic unix administration is
