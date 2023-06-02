@@ -37,7 +37,7 @@ Before running this test, your data hub should fullfill the following requiremen
 - An empty bucket has been created that can be used for this test.
 - S3 creadentials are available to access this bucket with read and write permissions.
 - A UNIX machine with access to the Object Storage API is available with Python 3.9 and
-  pip beeing installed.
+  pip installed.
 
 
 ## Troubleshooting and reporting issues:
