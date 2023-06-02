@@ -35,7 +35,7 @@ Before running this test, your data hub should fulfill the following requirement
 - A DevOps engineer who is familiar with the S3 API and basic unix administration is
   available to assist with the execution of this test bed.
 - An empty bucket has been created that can be used for this test.
-- S3 creadentials are available to access this bucket with read and write permissions.
+- S3 credentials are available to access this bucket with read and write permissions.
 - A UNIX machine with access to the Object Storage API is available with Python 3.9 and
   pip installed.
 
