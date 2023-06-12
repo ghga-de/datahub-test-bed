@@ -16,11 +16,13 @@
 
 -->
 
-# S3 Upload Testbed
+# Data Hub Testbed
 
 ## Overview
-The S3 Upload Testbed is a script designed to evaluate the performance during file
-upload and download operations with an S3-compatible storage service. It provides key
+The data hub testbed can be used to evaluate the compliance of an S3-compatible object
+storage with regard to the requirements for up and downloading files.
+
+It provides key
 metrics such as elapsed duration and average file part processing time. These metrics
 are logged and displayed in the terminal. An important note is that the terms "upload"
 and "download" refer to "Encryption and Upload" and "Download and Decryption", respectively.
