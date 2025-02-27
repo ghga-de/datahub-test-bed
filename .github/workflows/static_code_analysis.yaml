@@ -4,35 +4,36 @@ on: push
 
 jobs:
   static-code-analysis:
-    runs-on: ubuntu-latest
     name: Static Code Analysis
+
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        id: checkout
+        uses: actions/checkout@v4
 
-      - id: common
-        uses: ghga-de/gh-action-common@v2
+      - name: Common steps
+        id: common
+        uses: ghga-de/gh-action-common@v6
 
-      - uses: pre-commit/action@v3.0.0
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
         env:
           SKIP: no-commit-to-branch
-      - name: black
+
+      - name: Run ruff
+        id: ruff
         run: |
-          black --check .
-      - name: isort
-        run: |
-          isort --check --profile black .
-      - name: mypy
+          ruff check --output-format=github .
+          ruff format --check .
+
+      - name: Run mypy
+        id: mypy
         run: |
           mypy .
-      - name: pylint
-        run: |
-          pylint "${{ steps.common.outputs.MAIN_SRC_DIR }}"
-      - name: flake8
-        run: |
-          flake8 --config .flake8
-      - name: bandit
-        run: |
-          bandit -r "${{ steps.common.outputs.MAIN_SRC_DIR }}"
+
       - name: Check license header and file
+        id: license-checker
         run: |
-          ./scripts/license_checker.py
+          ./scripts/check_license.py

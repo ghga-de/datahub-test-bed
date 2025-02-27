@@ -1,4 +1,4 @@
-# Copyright 2021 - 2023 Universität Tübingen, DKFZ, EMBL, and Universität zu Köln
+# Copyright 2021 - 2024 Universität Tübingen, DKFZ, EMBL, and Universität zu Köln
 # for the German Human Genome-Phenome Archive (GHGA)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,8 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-from pathlib import Path
+"""Tests for the initial command. This is a temporary test file."""
 
-BASE_DIR = Path(__file__).parent.resolve()
+from datahub_test_bed.cli.main import hello
+
+
+def test_hello():
+    """Test the hello command."""
+    assert hello() == "Hello?"

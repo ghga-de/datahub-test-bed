@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2021 - 2023 Universität Tübingen, DKFZ, EMBL, and Universität zu Köln
+# Copyright 2021 - 2024 Universität Tübingen, DKFZ, EMBL, and Universität zu Köln
 # for the German Human Genome-Phenome Archive (GHGA)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,24 +15,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Extracts the package name from the setup.cfg"""
+"""Extracts the package name from pyproject.toml"""
 
 from pathlib import Path
 
 REPO_ROOT_DIR = Path(__file__).parent.parent.resolve()
-SETUP_CFG_PATH = REPO_ROOT_DIR / "setup.cfg"
+PYPROJECT_TOML_PATH = REPO_ROOT_DIR / "pyproject.toml"
 NAME_PREFIX = "name = "
 
 
 def get_package_name() -> str:
     """Extracts the package name"""
 
-    with open(SETUP_CFG_PATH, "r", encoding="utf8") as setup_cfg:
-        for line in setup_cfg.readlines():
+    with open(PYPROJECT_TOML_PATH, encoding="utf8") as pyproject_toml:
+        for line in pyproject_toml.readlines():
             line_stripped = line.strip()
             if line_stripped.startswith(NAME_PREFIX):
                 package_name = line_stripped[len(NAME_PREFIX) :]
-                return package_name
+                return package_name.strip('"')
         raise RuntimeError("Could not find package name.")
 
 
