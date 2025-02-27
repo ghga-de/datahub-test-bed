@@ -50,6 +50,8 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
+prof/
 
 # Translations
 *.mo
@@ -101,8 +103,8 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
-.env
+# Virtual environments and environment files
+*.env
 .venv
 env/
 venv/
@@ -128,5 +130,16 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# ingore vscode settings:
+# ignore VS Code settings:
 .vscode/
+
+# key stores
+*.key
+*.rnd
+.keystore
+.ssl/
+
+# desktop settings and thumbnails
+.DS_Store
+desktop.ini
+thumbs.db
