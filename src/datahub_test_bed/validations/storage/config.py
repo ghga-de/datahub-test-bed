@@ -13,18 +13,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Entrypoint of the package."""
+"""Configurations for the storage validations."""
 
-import logging
-
-from datahub_test_bed.cli import cli
+from pydantic import BaseModel
 
 
-def run():
-    """Entrypoint of the package."""
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
-    cli()
+class AccountConfig(BaseModel):
+    """Model for Storage Account configurations."""
+
+    name: str
+    s3_access_key_id: str
+    s3_secret_access_key: str
 
 
-if __name__ == "__main__":
-    run()
+class Buckets(BaseModel):
+    """Model for storage buckets."""
+
+    interrogation_bucket: str
+    permanent_bucket: str
+    outbox_bucket: str
+
+
+class Accounts(BaseModel):
+    """Model for storage profiles."""
+
+    master: AccountConfig
+    ifrs: AccountConfig
+    dcs: AccountConfig
+
+
+class StorageConfig(BaseModel):
+    """Model for storage configurations."""
+
+    s3_url_endpoint: str
+    buckets: Buckets
+    accounts: Accounts
