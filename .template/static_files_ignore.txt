@@ -10,3 +10,4 @@
 scripts/update_config_docs.py
 scripts/update_openapi_docs.py
 scripts/update_readme.py
+.gitignore
