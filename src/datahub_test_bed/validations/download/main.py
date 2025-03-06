@@ -41,6 +41,9 @@ def run_download_validation(config: DownloadConfig, object_key: str | bool):
         if not test_object_key:
             logger.error("Failed to upload the test file. Cancelling...")
             return
+    else:
+        test_object_key = str(object_key)
+        test_file_checksum = None
 
     downloader_client = DownloadClient(
         config=config, account=config.account_for_download
@@ -53,7 +56,17 @@ def run_download_validation(config: DownloadConfig, object_key: str | bool):
         logger.error("Failed to download the test file. Cancelling...")
         return
 
-    logger.info("Download completed. Validating the downloaded file.")
-    downloader_client.validate_downloaded_file(test_file_checksum, downloaded_file_path)
+    if test_file_checksum:
+        logger.info("Download completed. Validating the downloaded file.")
+        downloader_client.validate_downloaded_file(
+            test_file_checksum, downloaded_file_path
+        )
+
+    logger.info("Cleaning up the downloaded file.")
+    os.remove(downloaded_file_path)
+
+    if not object_key:
+        logger.info("Cleaning up the test file in the bucket.")
+        uploader_client.delete_object(config.bucket, test_object_key)
 
     logger.info("Download validation completed.")

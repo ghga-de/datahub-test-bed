@@ -70,9 +70,9 @@ def validate_download(
         with config_path.open("r", encoding="utf-8") as f:
             config_data = yaml.safe_load(f)
         download_config = DownloadConfig(**config_data)
-        typer.echo("Storage config has been loaded")
+        typer.echo("Download config has been loaded")
     except Exception as e:
-        typer.echo(f"Error loading storage config: {e}", err=True)
+        typer.echo(f"Error loading download config: {e}", err=True)
         raise typer.Exit(code=1) from e
 
     # Run the download validation
