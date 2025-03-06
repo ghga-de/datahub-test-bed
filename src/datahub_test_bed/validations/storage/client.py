@@ -21,13 +21,12 @@ import os
 import re
 import tempfile
 
-import boto3
 import botocore.exceptions
 
 from datahub_test_bed.validations.exceptions import (
     UnexpectedHTTPStatusException,
 )
-from datahub_test_bed.validations.models import AccountConfig
+from datahub_test_bed.validations.models import BaseBotoClient
 from datahub_test_bed.validations.utils import (
     PART_COUNT,
     PART_SIZE,
@@ -43,18 +42,8 @@ botocore.handlers.VALID_BUCKET = re.compile(
 )
 
 
-class StorageClient:
+class StorageClient(BaseBotoClient):
     """A client for interacting with S3/Ceph storage."""
-
-    def __init__(self, s3_url_endpoint: str, account: AccountConfig):
-        self.account = account
-        self.profile_name = account.name
-        self.s3_client = boto3.client(
-            "s3",
-            endpoint_url=s3_url_endpoint,
-            aws_access_key_id=account.s3_access_key_id,
-            aws_secret_access_key=account.s3_secret_access_key,
-        )
 
     def head_bucket(self, bucket: str, expect_error=False):
         """Check if the bucket is accessible."""
