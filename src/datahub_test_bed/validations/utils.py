@@ -15,6 +15,7 @@
 
 """Utility functions for storage validations."""
 
+import hashlib
 import logging
 import os
 from contextlib import contextmanager
@@ -70,8 +71,10 @@ def log_unexpected_error(  # noqa: PLR0913
 
 
 @contextmanager
-def generate_testfile(client, prefix):
+def generate_testfile(client, prefix, file_size=None):
     """Generate a test file for upload."""
+    if not file_size:
+        file_size = PART_SIZE * PART_COUNT
     file_prefix = f"{prefix}{client.profile_name}_"
     with NamedTemporaryFile(delete=False, prefix=file_prefix) as test_file:
         logger.info(
@@ -79,13 +82,13 @@ def generate_testfile(client, prefix):
             client.profile_name,
             test_file.name,
         )
-        test_file.write(b"\0" * (PART_SIZE * PART_COUNT))
+        test_file.write(b"\0" * file_size)
         yield test_file
 
 
-def upload_test_file(client, bucket, expect_error=False):
+def upload_test_file(client, bucket, file_size=None, expect_error=False):
     """Upload a test file to the bucket."""
-    with generate_testfile(client, TEST_FILE_PREFIX) as master_test_file:
+    with generate_testfile(client, TEST_FILE_PREFIX, file_size) as master_test_file:
         test_file_key = os.path.basename(master_test_file.name)
         client.upload_file_multipart(
             bucket=bucket,
@@ -93,7 +96,9 @@ def upload_test_file(client, bucket, expect_error=False):
             file_path=master_test_file.name,
             expect_error=expect_error,
         )
-    return test_file_key
+        master_test_file.seek(0)
+        file_checksum = hashlib.sha256(master_test_file.read()).hexdigest()
+    return test_file_key, file_checksum
 
 
 def get_error_message(

@@ -149,19 +149,19 @@ def run_validations(config: StorageConfig):
     # ----- MULTIPART UPLOAD TEST FILES -----
 
     # Upload test files with Master account as it is used by Data Stewards to upload
-    master_test_file_interrogation = upload_test_file(
+    master_test_file_interrogation, _ = upload_test_file(
         client=clients["master"],
         bucket=config.buckets.interrogation_bucket,
     )
 
     # IFRS should be able to write/upload to the permanent bucket
-    ifrs_test_file_permanent = upload_test_file(
+    ifrs_test_file_permanent, _ = upload_test_file(
         client=clients["ifrs"],
         bucket=config.buckets.permanent_bucket,
     )
 
     # IFRS should be able to write/upload to the permanent bucket
-    ifrs_test_file_outbox = upload_test_file(
+    ifrs_test_file_outbox, _ = upload_test_file(
         client=clients["ifrs"],
         bucket=config.buckets.outbox_bucket,
     )

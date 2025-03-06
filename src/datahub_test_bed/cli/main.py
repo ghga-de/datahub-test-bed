@@ -15,17 +15,16 @@
 
 """Main module for the CLI."""
 
-import logging
 from pathlib import Path
 
 import typer
 import yaml
 
-from datahub_test_bed.validations.models import StorageConfig
+from datahub_test_bed.validations.download.main import run_download_validation
+from datahub_test_bed.validations.models import DownloadConfig, StorageConfig
 from datahub_test_bed.validations.storage.main import run_validations
 
 cli = typer.Typer(no_args_is_help=True)
-LOG = logging.getLogger(__name__)
 
 
 @cli.command()
@@ -54,3 +53,27 @@ def validate_storage_permissions(
 
     # Run the storage validations
     run_validations(storage_config)
+
+
+@cli.command()
+def validate_download(
+    config_path: Path = typer.Option(
+        "config.yaml", help="Path to the download configuration YAML file."
+    ),
+    object_key: str = typer.Option(
+        None,
+        help="The object key to download. If not provided, a test file will be created.",
+    ),
+):
+    """Download a file from the configured environment using presigned URL."""
+    try:
+        with config_path.open("r", encoding="utf-8") as f:
+            config_data = yaml.safe_load(f)
+        download_config = DownloadConfig(**config_data)
+        typer.echo("Storage config has been loaded")
+    except Exception as e:
+        typer.echo(f"Error loading storage config: {e}", err=True)
+        raise typer.Exit(code=1) from e
+
+    # Run the download validation
+    run_download_validation(download_config, object_key)

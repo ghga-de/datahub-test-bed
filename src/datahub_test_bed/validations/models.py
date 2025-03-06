@@ -51,6 +51,18 @@ class StorageConfig(BaseModel):
     accounts: StorageAccounts
 
 
+class DownloadConfig(BaseModel):
+    """Model for storage configuration for file download."""
+
+    s3_url_endpoint: str
+    bucket: str
+    account_for_upload: AccountConfig
+    account_for_download: AccountConfig
+    output_dir: str
+    test_file_size: int = 52428800  # 50MB
+    presigned_url_expiration: int = 60
+
+
 class BaseBotoClient:
     """A base client for interacting with S3/Ceph storage."""
 
