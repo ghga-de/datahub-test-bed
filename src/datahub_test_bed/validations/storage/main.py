@@ -17,9 +17,9 @@
 
 import logging
 
+from datahub_test_bed.validations.models import Buckets, StorageConfig
 from datahub_test_bed.validations.storage.client import StorageClient
-from datahub_test_bed.validations.storage.config import Buckets, StorageConfig
-from datahub_test_bed.validations.storage.utils import (
+from datahub_test_bed.validations.utils import (
     TEST_FILE_PREFIX,
     upload_test_file,
 )

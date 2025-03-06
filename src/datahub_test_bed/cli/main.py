@@ -21,7 +21,7 @@ from pathlib import Path
 import typer
 import yaml
 
-from datahub_test_bed.validations.storage.config import StorageConfig
+from datahub_test_bed.validations.models import StorageConfig
 from datahub_test_bed.validations.storage.main import run_validations
 
 cli = typer.Typer(no_args_is_help=True)

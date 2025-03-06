@@ -24,17 +24,16 @@ import tempfile
 import boto3
 import botocore.exceptions
 
-from datahub_test_bed.validations.storage.exceptions import (
+from datahub_test_bed.validations.exceptions import (
     UnexpectedHTTPStatusException,
 )
-from datahub_test_bed.validations.storage.utils import (
+from datahub_test_bed.validations.models import AccountConfig
+from datahub_test_bed.validations.utils import (
     PART_COUNT,
     PART_SIZE,
     get_error_message,
     log_unexpected_error,
 )
-
-from .config import AccountConfig
 
 logger = logging.getLogger("storage")
 

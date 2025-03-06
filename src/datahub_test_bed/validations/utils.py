@@ -22,7 +22,7 @@ from tempfile import NamedTemporaryFile
 
 import botocore.exceptions
 
-from datahub_test_bed.validations.storage.exceptions import (
+from datahub_test_bed.validations.exceptions import (
     UnexpectedHTTPStatusException,
 )
 

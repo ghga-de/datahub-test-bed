@@ -15,6 +15,7 @@
 
 """Configurations for the storage validations."""
 
+import boto3
 from pydantic import BaseModel
 
 
@@ -34,7 +35,7 @@ class Buckets(BaseModel):
     outbox_bucket: str
 
 
-class Accounts(BaseModel):
+class StorageAccounts(BaseModel):
     """Model for storage profiles."""
 
     master: AccountConfig
@@ -47,4 +48,18 @@ class StorageConfig(BaseModel):
 
     s3_url_endpoint: str
     buckets: Buckets
-    accounts: Accounts
+    accounts: StorageAccounts
+
+
+class BaseBotoClient:
+    """A base client for interacting with S3/Ceph storage."""
+
+    def __init__(self, s3_url_endpoint: str, account: AccountConfig):
+        self.account = account
+        self.profile_name = account.name
+        self.s3_client = boto3.client(
+            "s3",
+            endpoint_url=s3_url_endpoint,
+            aws_access_key_id=account.s3_access_key_id,
+            aws_secret_access_key=account.s3_secret_access_key,
+        )
