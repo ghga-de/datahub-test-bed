@@ -23,3 +23,6 @@ The GHGA Data Hub Test Bed is utility tool to be used to evaluate the compliance
 
 ## Storage Validations
 For details about the storage validations, please refer to [Validate Storage Permissions](validate_storage_permissions.md).
+
+## Download Validation
+For details about the download validation, please refer to [Validate Download](validate_download.md).
