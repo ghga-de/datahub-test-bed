@@ -143,3 +143,7 @@ dmypy.json
 .DS_Store
 desktop.ini
 thumbs.db
+
+# other development related
+.config*.yaml
+.downloads/

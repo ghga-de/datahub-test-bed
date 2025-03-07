@@ -13,18 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Entrypoint of the package."""
-
-import logging
-
-from datahub_test_bed.cli import cli
-
-
-def run():
-    """Entrypoint of the package."""
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
-    cli()
-
-
-if __name__ == "__main__":
-    run()
+"""Validations and tests module for file downloads."""
