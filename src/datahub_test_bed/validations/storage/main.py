@@ -19,10 +19,7 @@ import logging
 
 from datahub_test_bed.validations.models import Buckets, StorageConfig
 from datahub_test_bed.validations.storage.client import StorageClient
-from datahub_test_bed.validations.utils import (
-    TEST_FILE_PREFIX,
-    upload_test_file,
-)
+from datahub_test_bed.validations.utils import TEST_FILE_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +58,7 @@ def check_list_bucket_objects(clients: dict, buckets: Buckets):
         clients["master"].list_all_object_in_bucket(bucket=bucket)
         clients["ifrs"].list_all_object_in_bucket(bucket=bucket)
         clients["dcs"].list_all_object_in_bucket(
-            bucket, expect_error=(bucket != buckets.outbox_bucket)
+            bucket=bucket, expect_error=(bucket != buckets.outbox_bucket)
         )
 
 
@@ -71,8 +68,7 @@ def check_uploads_expected_to_fail(clients, buckets):
     IFRS should not be able to upload to the interrogation bucket.
     DCS should not be able to upload to any bucket.
     """
-    upload_test_file(
-        client=clients["ifrs"],
+    clients["ifrs"].upload_test_file(
         bucket=buckets.interrogation_bucket,
         expect_error=True,
     )
@@ -82,8 +78,7 @@ def check_uploads_expected_to_fail(clients, buckets):
         buckets.permanent_bucket,
         buckets.outbox_bucket,
     ]:
-        upload_test_file(
-            client=clients["dcs"],
+        clients["dcs"].upload_test_file(
             bucket=bucket,
             expect_error=True,
         )
@@ -115,7 +110,7 @@ def delete_all_test_files(clients, buckets):
         buckets.outbox_bucket,
     ]:
         objects = clients["master"].list_all_object_in_bucket(
-            b, TEST_FILE_PREFIX, return_objects=True
+            bucket=b, prefix=TEST_FILE_PREFIX, return_objects=True
         )
         for obj in objects:
             k = obj["Key"]
@@ -149,20 +144,17 @@ def run_validations(config: StorageConfig):
     # ----- MULTIPART UPLOAD TEST FILES -----
 
     # Upload test files with Master account as it is used by Data Stewards to upload
-    master_test_file_interrogation = upload_test_file(
-        client=clients["master"],
+    master_test_file_interrogation = clients["master"].upload_test_file(
         bucket=config.buckets.interrogation_bucket,
     )
 
     # IFRS should be able to write/upload to the permanent bucket
-    ifrs_test_file_permanent = upload_test_file(
-        client=clients["ifrs"],
+    ifrs_test_file_permanent = clients["ifrs"].upload_test_file(
         bucket=config.buckets.permanent_bucket,
     )
 
-    # IFRS should be able to write/upload to the permanent bucket
-    ifrs_test_file_outbox = upload_test_file(
-        client=clients["ifrs"],
+    # IFRS should be able to write/upload to the outbox bucket
+    ifrs_test_file_outbox = clients["ifrs"].upload_test_file(
         bucket=config.buckets.outbox_bucket,
     )
 
@@ -172,10 +164,17 @@ def run_validations(config: StorageConfig):
 
     # ----- CHECK MULTIPART FILE COPY -----
 
-    # Run two copy scenarios to check both the polcies and object ownership:
-    # 1. Copy file that uploaded/owned by Master account using IFRS account
-    # 2. Copy file that uploaded/owned by IFRS account itself
+    # Run two copy scenarios to check both the policies and object ownership issues.
 
+    # 1. Multipart copy a file uploaded/owned by the Master account using the IFRS account.
+    # This is the desired scenario where the IFRS account should be able to copy files
+    # uploaded by Data Stewards using the Master account. This could fail for two reasons:
+    # a. The IFRS account is not allowed to copy files from the interrogation bucket.
+    # b. The IFRS account is not allowed to copy files owned by the Master account.
+    # It is not possible to distinguish between these two causes due to a known bug in some
+    # Ceph versions: https://tracker.ceph.com/issues/61954
+    # If this fails, it is recommended to ensure that the bucket policies are correctly set
+    # and to check for object ownership issues.
     check_copy_file(
         client_owner=clients["master"],
         client_copier=clients["ifrs"],
@@ -184,6 +183,10 @@ def run_validations(config: StorageConfig):
         object_key=master_test_file_interrogation,
     )
 
+    # 2. Multipart copy file that uploaded/owned by IFRS account itself
+    # This is the desired scenario where IFRS account should be able to copy the file.
+    # IFRS account first copies the file from the interrogration bucket to the permanent bucket.
+    # Then copies the file from the permanent bucket to the outbox bucket.
     check_copy_file(
         client_owner=clients["ifrs"],
         client_copier=clients["ifrs"],
@@ -219,5 +222,3 @@ def run_validations(config: StorageConfig):
     logger.info("----------")
     logger.info("Please check the ERROR logs for any issues")
     logger.info("----------")
-
-    return True

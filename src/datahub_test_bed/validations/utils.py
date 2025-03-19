@@ -16,7 +16,6 @@
 """Utility functions for storage validations."""
 
 import logging
-import os
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 
@@ -26,25 +25,26 @@ from datahub_test_bed.validations.exceptions import (
     UnexpectedHTTPStatusException,
 )
 
-PART_SIZE = 15728640
+PART_SIZE = 15 * 1024**2
 PART_COUNT = 2
 TEST_FILE_PREFIX = "testfile_upload_"
 
 logger = logging.getLogger("storage")
 
 
-def log_unexpected_error(  # noqa: PLR0913
+def log_error(  # noqa: PLR0913
+    *,
     operation: str,
     account_name: str,
     bucket: str,
     error_message: str,
-    key=None,
-    expect_error=False,
+    key: str | None = None,
+    expect_error: bool = False,
 ):
     """Log an error message with details."""
     if expect_error:
         logger.info(
-            'Expected fail on operation "%s" to "%s" bucket using "%s". Reason: "%s"',
+            'Expected failure on operation "%s" to "%s" bucket using "%s". Reason: "%s"',
             operation,
             bucket,
             account_name,
@@ -70,30 +70,17 @@ def log_unexpected_error(  # noqa: PLR0913
 
 
 @contextmanager
-def generate_testfile(client, prefix):
+def generate_testfile(file_owner: str, prefix: str):
     """Generate a test file for upload."""
-    file_prefix = f"{prefix}{client.profile_name}_"
+    file_prefix = f"{prefix}{file_owner}_"
     with NamedTemporaryFile(delete=False, prefix=file_prefix) as test_file:
         logger.info(
             'Created test file for "%s" at "%s"',
-            client.profile_name,
+            file_owner,
             test_file.name,
         )
         test_file.write(b"\0" * (PART_SIZE * PART_COUNT))
         yield test_file
-
-
-def upload_test_file(client, bucket, expect_error=False):
-    """Upload a test file to the bucket."""
-    with generate_testfile(client, TEST_FILE_PREFIX) as master_test_file:
-        test_file_key = os.path.basename(master_test_file.name)
-        client.upload_file_multipart(
-            bucket=bucket,
-            key=str(test_file_key),
-            file_path=master_test_file.name,
-            expect_error=expect_error,
-        )
-    return test_file_key
 
 
 def get_error_message(

@@ -52,7 +52,7 @@ In the results there are two types of messages in each log level.
 
 1. Regular success messages
 2. Expected failure cases. These are logged at the INFO level because they are anticipated.
-  - E.g. Expected fail on operation %s to %s bucket using %s. Reason: %s
+  - E.g.Expected failure on operation %s to %s bucket using %s. Reason: %s
 
 **ERROR logs**
 

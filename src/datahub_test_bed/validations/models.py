@@ -19,7 +19,7 @@ import boto3
 from pydantic import BaseModel
 
 
-class AccountConfig(BaseModel):
+class S3AccountConfig(BaseModel):
     """Model for Storage Account configurations."""
 
     name: str
@@ -38,9 +38,9 @@ class Buckets(BaseModel):
 class StorageAccounts(BaseModel):
     """Model for storage profiles."""
 
-    master: AccountConfig
-    ifrs: AccountConfig
-    dcs: AccountConfig
+    master: S3AccountConfig
+    ifrs: S3AccountConfig
+    dcs: S3AccountConfig
 
 
 class StorageConfig(BaseModel):
@@ -54,7 +54,7 @@ class StorageConfig(BaseModel):
 class BaseBotoClient:
     """A base client for interacting with S3/Ceph storage."""
 
-    def __init__(self, s3_url_endpoint: str, account: AccountConfig):
+    def __init__(self, s3_url_endpoint: str, account: S3AccountConfig):
         self.account = account
         self.profile_name = account.name
         self.s3_client = boto3.client(

@@ -18,5 +18,3 @@
 
 class UnexpectedHTTPStatusException(Exception):
     """Exception for unexpected HTTP status codes."""
-
-    pass
