@@ -73,7 +73,7 @@ def log_error(  # noqa: PLR0913
 def generate_testfile(file_owner: str, prefix: str):
     """Generate a test file for upload."""
     file_prefix = f"{prefix}{file_owner}_"
-    with NamedTemporaryFile(delete=False, prefix=file_prefix) as test_file:
+    with NamedTemporaryFile(prefix=file_prefix) as test_file:
         logger.info(
             'Created test file for "%s" at "%s"',
             file_owner,
