@@ -21,7 +21,7 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 name = "datahub_test_bed"
-version = "0.0.1"
+version = "1.0.0"
 description = "GHGA's utility tool for technical validation of Data Hubs and benchmarks"
 dependencies = [
     "boto3>=1.37.0,<2",
