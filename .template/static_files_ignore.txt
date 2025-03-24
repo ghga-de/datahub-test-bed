@@ -5,6 +5,7 @@
 .github/workflows/check_openapi_spec.yaml
 .github/workflows/check_readme.yaml
 .github/workflows/ci_release.yaml
+.github/workflows/ci_workflow_dispatch.yaml
 .readme_generation/readme_template.md
 .readme_generation/README.md
 scripts/update_config_docs.py
