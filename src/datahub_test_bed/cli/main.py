@@ -36,7 +36,7 @@ def hello():
     return msg
 
 
-@cli.command()
+@cli.command(no_args_is_help=True)
 def validate_storage_permissions(
     config_path: Path = typer.Option(
         "config.yaml", help="Path to the storage configuration YAML file."
