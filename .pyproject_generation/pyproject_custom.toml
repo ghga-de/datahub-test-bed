@@ -3,6 +3,11 @@ name = "datahub_test_bed"
 version = "0.0.1"
 description = "GHGA's utility tool for technical validation of Data Hubs and benchmarks"
 dependencies = [
+    "boto3>=1.37.0,<2",
+    "botocore>=1.37.0,<2",
+    "pydantic>=2,<3",
+    "pydantic_settings>=2,<3",
+    "PyYAML>=6,<7"
 ]
 
 [project.urls]

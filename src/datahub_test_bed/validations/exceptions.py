@@ -13,18 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Entrypoint of the package."""
-
-import logging
-
-from datahub_test_bed.cli import cli
+"""Exceptions for the storage validations."""
 
 
-def run():
-    """Entrypoint of the package."""
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
-    cli()
-
-
-if __name__ == "__main__":
-    run()
+class UnexpectedHTTPStatusException(Exception):
+    """Exception for unexpected HTTP status codes."""
