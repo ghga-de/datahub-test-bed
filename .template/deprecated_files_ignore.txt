@@ -1,0 +1,4 @@
+# List of all deprecated files and directories that
+# have to exist in this repo.
+
+docs

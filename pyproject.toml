@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools>=69",
+    "setuptools>=80.10",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -9,19 +9,19 @@ readme = "README.md"
 authors = [
     { name = "German Human Genome Phenome Archive (GHGA)", email = "contact@ghga.de" },
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 5 - Production/Stable",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: Apache Software License",
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
     "Topic :: Software Development :: Libraries",
     "Intended Audience :: Developers",
 ]
 name = "datahub_test_bed"
-version = "1.0.0"
+version = "1.1.0"
 description = "GHGA's utility tool for technical validation of Data Hubs and benchmarks"
 dependencies = [
     "boto3>=1.37.0,<2",
@@ -61,7 +61,7 @@ src = [
     "examples",
     "scripts",
 ]
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 fixable = [
@@ -148,8 +148,9 @@ check_untyped_defs = true
 no_site_packages = false
 
 [tool.pytest.ini_options]
-minversion = "8.0"
+minversion = "9.0"
 asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.paths]
 source = [
