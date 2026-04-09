@@ -20,6 +20,7 @@ import logging
 import os
 import re
 import tempfile
+import urllib.request
 
 import botocore.exceptions
 
@@ -512,6 +513,44 @@ class StorageClient(BaseBotoClient):
                 account_name=self.profile_name,
                 bucket=bucket,
                 error_message=error_message,
+            )
+            return None
+
+    def get_object_via_presigned_url(self, bucket: str, key: str) -> bytes | None:
+        """Generate a presigned get_object URL and download the object content."""
+        try:
+            url = self.s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": bucket, "Key": key},
+                ExpiresIn=60,
+            )
+        except botocore.exceptions.ClientError as error:
+            error_message = get_error_message(error)
+            log_error(
+                operation="GeneratePresignedUrl",
+                account_name=self.profile_name,
+                bucket=bucket,
+                key=key,
+                error_message=error_message,
+            )
+            return None
+        try:
+            with urllib.request.urlopen(url) as response:  # noqa: S310
+                content = response.read()
+            logger.info(
+                'Downloaded object "%s" from bucket "%s" via presigned URL using account "%s"',
+                key,
+                bucket,
+                self.profile_name,
+            )
+            return content
+        except Exception as error:
+            log_error(
+                operation="GetObjectViaPresignedUrl",
+                account_name=self.profile_name,
+                bucket=bucket,
+                key=key,
+                error_message=str(error),
             )
             return None
 
