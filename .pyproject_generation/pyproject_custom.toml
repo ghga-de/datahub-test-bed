@@ -1,6 +1,6 @@
 [project]
 name = "datahub_test_bed"
-version = "1.1.0"
+version = "2.0.0"
 description = "GHGA's utility tool for technical validation of Data Hubs and benchmarks"
 dependencies = [
     "boto3>=1.37.0,<2",
