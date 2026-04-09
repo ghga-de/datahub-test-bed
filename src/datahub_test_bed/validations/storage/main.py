@@ -23,43 +23,58 @@ from datahub_test_bed.validations.utils import TEST_FILE_PREFIX
 
 logger = logging.getLogger(__name__)
 
+BUCKET_ACCESS = {
+    "inbox_bucket": {
+        "master": False,
+        "ucs": False,
+        "dhfs": False,
+        "ifrs": True,
+        "dcs": True,
+    },
+    "interrogation_bucket": {
+        "master": False,
+        "dhfs": False,
+        "ifrs": False,
+        "ucs": True,
+        "dcs": True,
+    },
+    "permanent_bucket": {
+        "master": False,
+        "ifrs": False,
+        "ucs": True,
+        "dcs": True,
+        "dhfs": True,
+    },
+    "outbox_bucket": {
+        "master": False,
+        "ifrs": False,
+        "dcs": False,
+        "ucs": True,
+        "dhfs": True,
+    },
+}
+
 
 def check_bucket_accessibility(buckets: Buckets, clients: dict):
-    """Check the accessibility of the buckets.
-
-    Master and IFRS accounts should have access to all buckets.
-    DCS account should have access to the outbox bucket.
-    """
+    """Check the accessibility of the buckets."""
     logger.info("Checking bucket accessibility")
-    for bucket in [
-        buckets.interrogation_bucket,
-        buckets.permanent_bucket,
-        buckets.outbox_bucket,
-    ]:
-        clients["master"].head_bucket(bucket)
-        clients["ifrs"].head_bucket(bucket)
-        clients["dcs"].head_bucket(
-            bucket, expect_error=(bucket != buckets.outbox_bucket)
-        )
+
+    for bucket_name, access in BUCKET_ACCESS.items():
+        bucket = getattr(buckets, bucket_name)
+        for client_name, expect_error in access.items():
+            clients[client_name].head_bucket(bucket, expect_error=expect_error)
 
 
 def check_list_bucket_objects(clients: dict, buckets: Buckets):
-    """Check listing of objects in the bucket.
-
-    Master and IFRS account should be able to list objects in all the buckets.
-    DCS account should be able to list objects in the outbox bucket.
-    """
+    """Check listing of objects in the bucket."""
     logger.info("Checking listing of objects in buckets")
-    for bucket in [
-        buckets.interrogation_bucket,
-        buckets.permanent_bucket,
-        buckets.outbox_bucket,
-    ]:
-        clients["master"].list_all_object_in_bucket(bucket=bucket)
-        clients["ifrs"].list_all_object_in_bucket(bucket=bucket)
-        clients["dcs"].list_all_object_in_bucket(
-            bucket=bucket, expect_error=(bucket != buckets.outbox_bucket)
-        )
+
+    for bucket_name, access in BUCKET_ACCESS.items():
+        bucket = getattr(buckets, bucket_name)
+        for client_name, expect_error in access.items():
+            clients[client_name].list_all_object_in_bucket(
+                bucket=bucket, expect_error=expect_error
+            )
 
 
 def check_uploads_expected_to_fail(clients, buckets):
@@ -130,6 +145,12 @@ def run_validations(config: StorageConfig):
         ),
         "dcs": StorageClient(
             s3_url_endpoint=config.s3_url_endpoint, account=config.accounts.dcs
+        ),
+        "ucs": StorageClient(
+            s3_url_endpoint=config.s3_url_endpoint, account=config.accounts.ucs
+        ),
+        "dhfs": StorageClient(
+            s3_url_endpoint=config.s3_url_endpoint, account=config.accounts.dhfs
         ),
     }
 
