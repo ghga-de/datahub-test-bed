@@ -16,6 +16,7 @@
 """Main module for the storage validations."""
 
 import logging
+import tempfile
 
 from datahub_test_bed.validations.models import Buckets, StorageConfig
 from datahub_test_bed.validations.storage.client import StorageClient
@@ -116,6 +117,37 @@ def check_uploads_expected_to_fail(clients, buckets):
             )
 
 
+def check_dhfs_transfer(client_dhfs, inbox_bucket, inbox_key, interrogation_bucket):
+    """DHFS downloads a file from inbox via presigned URL and re-uploads to interrogation.
+
+    This is distinct from a server-side copy: DHFS uses get_object (via presigned URL)
+    to download from inbox, then performs a multipart upload to interrogation.
+    """
+    logger.info(
+        'DHFS downloading "%s" from "%s" via presigned URL and re-uploading to "%s"',
+        inbox_key,
+        inbox_bucket,
+        interrogation_bucket,
+    )
+    content = client_dhfs.get_object_via_presigned_url(inbox_bucket, inbox_key)
+    if content is None:
+        logger.error(
+            'DHFS failed to download "%s" from "%s" via presigned URL',
+            inbox_key,
+            inbox_bucket,
+        )
+        return
+    dst_key = f"{inbox_key}-transferred-by-{client_dhfs.profile_name}"
+    with tempfile.NamedTemporaryFile() as tmp:
+        tmp.write(content)
+        tmp.flush()
+        client_dhfs.upload_file_multipart(
+            file_path=tmp.name,
+            key=dst_key,
+            bucket=interrogation_bucket,
+        )
+
+
 def check_copy_file(client_owner, client_copier, bucket_from, bucket_to, object_key):
     """Copy a file from one bucket to another, considering the ownership."""
     logger.info(
@@ -137,6 +169,7 @@ def check_copy_file(client_owner, client_copier, bucket_from, bucket_to, object_
 def delete_all_test_files(clients, buckets):
     """Delete all the test files uploaded during the validations."""
     for b in [
+        buckets.inbox_bucket,
         buckets.interrogation_bucket,
         buckets.permanent_bucket,
         buckets.outbox_bucket,
@@ -185,8 +218,13 @@ def run_validations(config: StorageConfig):
 
     # ----- MULTIPART UPLOAD TEST FILES -----
 
-    # Upload test files with Master account as it is used by Data Stewards to upload
-    master_test_file_interrogation = clients["master"].upload_test_file(
+    # UCS should be able to write/upload to the inbox bucket
+    ucs_test_file_inbox = clients["ucs"].upload_test_file(
+        bucket=config.buckets.inbox_bucket,
+    )
+
+    # DHFS should be able to write/upload to the interrogation
+    dhfs_test_file_interrogation = clients["dhfs"].upload_test_file(
         bucket=config.buckets.interrogation_bucket,
     )
 
@@ -200,25 +238,36 @@ def run_validations(config: StorageConfig):
         bucket=config.buckets.outbox_bucket,
     )
 
+    # ----- CHECK DHFS RE-UPLOAD (download from inbox & upload to interrogation) -----
+
+    # DHFS downloads the UCS-uploaded file from the inbox bucket via presigned URL
+    # and uploads to the interrogation bucket
+    check_dhfs_transfer(
+        client_dhfs=clients["dhfs"],
+        inbox_bucket=config.buckets.inbox_bucket,
+        inbox_key=ucs_test_file_inbox,
+        interrogation_bucket=config.buckets.interrogation_bucket,
+    )
+
     # ----- CHECK MULTIPART FILE COPY -----
 
-    # Run two copy scenarios to check both the policies and object ownership issues.
+    # Run two copy scenarios to validate both the policies and object ownership issues.
 
-    # 1. Multipart copy a file uploaded/owned by the Master account using the IFRS account.
+    # 1. Multipart copy a file uploaded/owned by the DHFS account using the IFRS account.
     # This is the desired scenario where the IFRS account should be able to copy files
-    # uploaded by Data Stewards using the Master account. This could fail for two reasons:
+    # uploaded by UCS. This could fail for two reasons:
     # a. The IFRS account is not allowed to copy files from the interrogation bucket.
-    # b. The IFRS account is not allowed to copy files owned by the Master account.
+    # b. The IFRS account is not allowed to copy files owned by the UCS account.
     # It is not possible to distinguish between these two causes due to a known bug in some
     # Ceph versions: https://tracker.ceph.com/issues/61954
     # If this fails, it is recommended to ensure that the bucket policies are correctly set
     # and to check for object ownership issues.
     check_copy_file(
-        client_owner=clients["master"],
+        client_owner=clients["dhfs"],
         client_copier=clients["ifrs"],
         bucket_from=config.buckets.interrogation_bucket,
         bucket_to=config.buckets.permanent_bucket,
-        object_key=master_test_file_interrogation,
+        object_key=dhfs_test_file_interrogation,
     )
 
     # 2. Multipart copy file that uploaded/owned by IFRS account itself
@@ -244,12 +293,20 @@ def run_validations(config: StorageConfig):
     # Delete the test files uploaded during the validations
     # using the responsible accounts for cleaning their respective buckets
 
+    # UCS deletes the file from the inbox bucket that it uploaded
+    clients["ucs"].delete_object(config.buckets.inbox_bucket, ucs_test_file_inbox)
+
+    # IFRS deletes the files from the interrogation that DHFS uploaded
     clients["ifrs"].delete_object(
-        config.buckets.interrogation_bucket, master_test_file_interrogation
+        config.buckets.interrogation_bucket, dhfs_test_file_interrogation
     )
+
+    # IFRS deletes the files from the permanent that it copied
     clients["ifrs"].delete_object(
         config.buckets.permanent_bucket, ifrs_test_file_permanent
     )
+
+    # DCS deletes the file from the outbox that IFRS staged
     clients["dcs"].delete_object(config.buckets.outbox_bucket, ifrs_test_file_outbox)
 
     # ----- DELETE ALL THE TEST FILES -----
