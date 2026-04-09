@@ -80,23 +80,40 @@ def check_list_bucket_objects(clients: dict, buckets: Buckets):
 def check_uploads_expected_to_fail(clients, buckets):
     """Try to upload files that are expected to be denied by policies.
 
-    IFRS should not be able to upload to the interrogation bucket.
+    IFRS should not be able to upload to the inbox and interrogation bucket.
     DCS should not be able to upload to any bucket.
+    UCS should not be able to upload to the interrogation, permanent and outbox bucket.
+    DHFS should not be able to upload to the inbox, permanent and outbox bucket.
     """
-    clients["ifrs"].upload_test_file(
-        bucket=buckets.interrogation_bucket,
-        expect_error=True,
-    )
+    expected_upload_failures = {
+        "ifrs": (
+            buckets.inbox_bucket,
+            buckets.interrogation_bucket,
+        ),
+        "dcs": (
+            buckets.inbox_bucket,
+            buckets.interrogation_bucket,
+            buckets.permanent_bucket,
+            buckets.outbox_bucket,
+        ),
+        "ucs": (
+            buckets.interrogation_bucket,
+            buckets.permanent_bucket,
+            buckets.outbox_bucket,
+        ),
+        "dhfs": (
+            buckets.inbox_bucket,
+            buckets.permanent_bucket,
+            buckets.outbox_bucket,
+        ),
+    }
 
-    for bucket in [
-        buckets.interrogation_bucket,
-        buckets.permanent_bucket,
-        buckets.outbox_bucket,
-    ]:
-        clients["dcs"].upload_test_file(
-            bucket=bucket,
-            expect_error=True,
-        )
+    for client_name, bucket_list in expected_upload_failures.items():
+        for bucket in bucket_list:
+            clients[client_name].upload_test_file(
+                bucket=bucket,
+                expect_error=True,
+            )
 
 
 def check_copy_file(client_owner, client_copier, bucket_from, bucket_to, object_key):
@@ -162,6 +179,10 @@ def run_validations(config: StorageConfig):
 
     check_list_bucket_objects(clients=clients, buckets=config.buckets)
 
+    # ----- CHECK UPLOADS EXPECTED TO FAIL -----
+
+    check_uploads_expected_to_fail(clients=clients, buckets=config.buckets)
+
     # ----- MULTIPART UPLOAD TEST FILES -----
 
     # Upload test files with Master account as it is used by Data Stewards to upload
@@ -178,10 +199,6 @@ def run_validations(config: StorageConfig):
     ifrs_test_file_outbox = clients["ifrs"].upload_test_file(
         bucket=config.buckets.outbox_bucket,
     )
-
-    # ----- CHECK UPLOADS EXPECTED TO FAIL -----
-
-    check_uploads_expected_to_fail(clients=clients, buckets=config.buckets)
 
     # ----- CHECK MULTIPART FILE COPY -----
 
