@@ -16,6 +16,7 @@
 """Main module for the storage validations."""
 
 import logging
+import tempfile
 
 from datahub_test_bed.validations.models import Buckets, StorageConfig
 from datahub_test_bed.validations.storage.client import StorageClient
@@ -23,64 +24,127 @@ from datahub_test_bed.validations.utils import TEST_FILE_PREFIX
 
 logger = logging.getLogger(__name__)
 
+BUCKET_ACCESS = {
+    "inbox_bucket": {
+        "master": False,
+        "ucs": False,
+        "dhfs": False,
+        "ifrs": True,
+        "dcs": True,
+    },
+    "interrogation_bucket": {
+        "master": False,
+        "dhfs": False,
+        "ifrs": False,
+        "ucs": True,
+        "dcs": True,
+    },
+    "permanent_bucket": {
+        "master": False,
+        "ifrs": False,
+        "ucs": True,
+        "dcs": True,
+        "dhfs": True,
+    },
+    "outbox_bucket": {
+        "master": False,
+        "ifrs": False,
+        "dcs": False,
+        "ucs": True,
+        "dhfs": True,
+    },
+}
+
 
 def check_bucket_accessibility(buckets: Buckets, clients: dict):
-    """Check the accessibility of the buckets.
-
-    Master and IFRS accounts should have access to all buckets.
-    DCS account should have access to the outbox bucket.
-    """
+    """Check the accessibility of the buckets."""
     logger.info("Checking bucket accessibility")
-    for bucket in [
-        buckets.interrogation_bucket,
-        buckets.permanent_bucket,
-        buckets.outbox_bucket,
-    ]:
-        clients["master"].head_bucket(bucket)
-        clients["ifrs"].head_bucket(bucket)
-        clients["dcs"].head_bucket(
-            bucket, expect_error=(bucket != buckets.outbox_bucket)
-        )
+
+    for bucket_name, access in BUCKET_ACCESS.items():
+        bucket = getattr(buckets, bucket_name)
+        for client_name, expect_error in access.items():
+            clients[client_name].head_bucket(bucket, expect_error=expect_error)
 
 
 def check_list_bucket_objects(clients: dict, buckets: Buckets):
-    """Check listing of objects in the bucket.
-
-    Master and IFRS account should be able to list objects in all the buckets.
-    DCS account should be able to list objects in the outbox bucket.
-    """
+    """Check listing of objects in the bucket."""
     logger.info("Checking listing of objects in buckets")
-    for bucket in [
-        buckets.interrogation_bucket,
-        buckets.permanent_bucket,
-        buckets.outbox_bucket,
-    ]:
-        clients["master"].list_all_object_in_bucket(bucket=bucket)
-        clients["ifrs"].list_all_object_in_bucket(bucket=bucket)
-        clients["dcs"].list_all_object_in_bucket(
-            bucket=bucket, expect_error=(bucket != buckets.outbox_bucket)
-        )
+
+    for bucket_name, access in BUCKET_ACCESS.items():
+        bucket = getattr(buckets, bucket_name)
+        for client_name, expect_error in access.items():
+            clients[client_name].list_all_object_in_bucket(
+                bucket=bucket, expect_error=expect_error
+            )
 
 
 def check_uploads_expected_to_fail(clients, buckets):
     """Try to upload files that are expected to be denied by policies.
 
-    IFRS should not be able to upload to the interrogation bucket.
+    IFRS should not be able to upload to the inbox and interrogation bucket.
     DCS should not be able to upload to any bucket.
+    UCS should not be able to upload to the interrogation, permanent and outbox bucket.
+    DHFS should not be able to upload to the inbox, permanent and outbox bucket.
     """
-    clients["ifrs"].upload_test_file(
-        bucket=buckets.interrogation_bucket,
-        expect_error=True,
-    )
+    expected_upload_failures = {
+        "ifrs": (
+            buckets.inbox_bucket,
+            buckets.interrogation_bucket,
+        ),
+        "dcs": (
+            buckets.inbox_bucket,
+            buckets.interrogation_bucket,
+            buckets.permanent_bucket,
+            buckets.outbox_bucket,
+        ),
+        "ucs": (
+            buckets.interrogation_bucket,
+            buckets.permanent_bucket,
+            buckets.outbox_bucket,
+        ),
+        "dhfs": (
+            buckets.inbox_bucket,
+            buckets.permanent_bucket,
+            buckets.outbox_bucket,
+        ),
+    }
 
-    for bucket in [
-        buckets.interrogation_bucket,
-        buckets.permanent_bucket,
-        buckets.outbox_bucket,
-    ]:
-        clients["dcs"].upload_test_file(
-            bucket=bucket,
-            expect_error=True,
+    for client_name, bucket_list in expected_upload_failures.items():
+        for bucket in bucket_list:
+            clients[client_name].upload_test_file(
+                bucket=bucket,
+                expect_error=True,
+            )
+
+
+def check_dhfs_transfer(client_dhfs, inbox_bucket, inbox_key, interrogation_bucket):
+    """DHFS downloads a file from inbox via presigned URL and re-uploads to interrogation.
+
+    This is distinct from a server-side copy: DHFS uses get_object (via presigned URL)
+    to download from inbox, then performs a multipart upload to interrogation.
+    """
+    logger.info(
+        'DHFS downloading "%s" from "%s" via presigned URL and re-uploading to "%s"',
+        inbox_key,
+        inbox_bucket,
+        interrogation_bucket,
+    )
+    content = client_dhfs.get_object_via_presigned_url(inbox_bucket, inbox_key)
+    if content is None:
+        logger.error(
+            'DHFS failed to download "%s" from "%s" via presigned URL',
+            inbox_key,
+            inbox_bucket,
+        )
+        return
+    dst_key = f"{inbox_key}-transferred-by-{client_dhfs.profile_name}"
+    with tempfile.NamedTemporaryFile() as tmp:
+        tmp.write(content)
+        tmp.flush()
+        client_dhfs.upload_file_multipart(
+            file_path=tmp.name,
+            key=dst_key,
+            bucket=interrogation_bucket,
         )
 
 
@@ -105,6 +169,7 @@ def check_copy_file(client_owner, client_copier, bucket_from, bucket_to, object_
 def delete_all_test_files(clients, buckets):
     """Delete all the test files uploaded during the validations."""
     for b in [
+        buckets.inbox_bucket,
         buckets.interrogation_bucket,
         buckets.permanent_bucket,
         buckets.outbox_bucket,
@@ -131,6 +196,12 @@ def run_validations(config: StorageConfig):
         "dcs": StorageClient(
             s3_url_endpoint=config.s3_url_endpoint, account=config.accounts.dcs
         ),
+        "ucs": StorageClient(
+            s3_url_endpoint=config.s3_url_endpoint, account=config.accounts.ucs
+        ),
+        "dhfs": StorageClient(
+            s3_url_endpoint=config.s3_url_endpoint, account=config.accounts.dhfs
+        ),
     }
 
     # ----- CHECK BUCKET ACCESSIBILITY -----
@@ -141,10 +212,19 @@ def run_validations(config: StorageConfig):
 
     check_list_bucket_objects(clients=clients, buckets=config.buckets)
 
+    # ----- CHECK UPLOADS EXPECTED TO FAIL -----
+
+    check_uploads_expected_to_fail(clients=clients, buckets=config.buckets)
+
     # ----- MULTIPART UPLOAD TEST FILES -----
 
-    # Upload test files with Master account as it is used by Data Stewards to upload
-    master_test_file_interrogation = clients["master"].upload_test_file(
+    # UCS should be able to write/upload to the inbox bucket
+    ucs_test_file_inbox = clients["ucs"].upload_test_file(
+        bucket=config.buckets.inbox_bucket,
+    )
+
+    # DHFS should be able to write/upload to the interrogation
+    dhfs_test_file_interrogation = clients["dhfs"].upload_test_file(
         bucket=config.buckets.interrogation_bucket,
     )
 
@@ -158,29 +238,36 @@ def run_validations(config: StorageConfig):
         bucket=config.buckets.outbox_bucket,
     )
 
-    # ----- CHECK UPLOADS EXPECTED TO FAIL -----
+    # ----- CHECK DHFS RE-UPLOAD (download from inbox & upload to interrogation) -----
 
-    check_uploads_expected_to_fail(clients=clients, buckets=config.buckets)
+    # DHFS downloads the UCS-uploaded file from the inbox bucket via presigned URL
+    # and uploads to the interrogation bucket
+    check_dhfs_transfer(
+        client_dhfs=clients["dhfs"],
+        inbox_bucket=config.buckets.inbox_bucket,
+        inbox_key=ucs_test_file_inbox,
+        interrogation_bucket=config.buckets.interrogation_bucket,
+    )
 
     # ----- CHECK MULTIPART FILE COPY -----
 
-    # Run two copy scenarios to check both the policies and object ownership issues.
+    # Run two copy scenarios to validate both the policies and object ownership issues.
 
-    # 1. Multipart copy a file uploaded/owned by the Master account using the IFRS account.
+    # 1. Multipart copy a file uploaded/owned by the DHFS account using the IFRS account.
     # This is the desired scenario where the IFRS account should be able to copy files
-    # uploaded by Data Stewards using the Master account. This could fail for two reasons:
+    # uploaded by UCS. This could fail for two reasons:
     # a. The IFRS account is not allowed to copy files from the interrogation bucket.
-    # b. The IFRS account is not allowed to copy files owned by the Master account.
+    # b. The IFRS account is not allowed to copy files owned by the UCS account.
     # It is not possible to distinguish between these two causes due to a known bug in some
     # Ceph versions: https://tracker.ceph.com/issues/61954
     # If this fails, it is recommended to ensure that the bucket policies are correctly set
     # and to check for object ownership issues.
     check_copy_file(
-        client_owner=clients["master"],
+        client_owner=clients["dhfs"],
         client_copier=clients["ifrs"],
         bucket_from=config.buckets.interrogation_bucket,
         bucket_to=config.buckets.permanent_bucket,
-        object_key=master_test_file_interrogation,
+        object_key=dhfs_test_file_interrogation,
     )
 
     # 2. Multipart copy file that uploaded/owned by IFRS account itself
@@ -206,12 +293,20 @@ def run_validations(config: StorageConfig):
     # Delete the test files uploaded during the validations
     # using the responsible accounts for cleaning their respective buckets
 
+    # UCS deletes the file from the inbox bucket that it uploaded
+    clients["ucs"].delete_object(config.buckets.inbox_bucket, ucs_test_file_inbox)
+
+    # IFRS deletes the files from the interrogation that DHFS uploaded
     clients["ifrs"].delete_object(
-        config.buckets.interrogation_bucket, master_test_file_interrogation
+        config.buckets.interrogation_bucket, dhfs_test_file_interrogation
     )
+
+    # IFRS deletes the files from the permanent that it copied
     clients["ifrs"].delete_object(
         config.buckets.permanent_bucket, ifrs_test_file_permanent
     )
+
+    # DCS deletes the file from the outbox that IFRS staged
     clients["dcs"].delete_object(config.buckets.outbox_bucket, ifrs_test_file_outbox)
 
     # ----- DELETE ALL THE TEST FILES -----

@@ -30,6 +30,7 @@ class S3AccountConfig(BaseModel):
 class Buckets(BaseModel):
     """Model for storage buckets."""
 
+    inbox_bucket: str
     interrogation_bucket: str
     permanent_bucket: str
     outbox_bucket: str
@@ -41,6 +42,8 @@ class StorageAccounts(BaseModel):
     master: S3AccountConfig
     ifrs: S3AccountConfig
     dcs: S3AccountConfig
+    ucs: S3AccountConfig
+    dhfs: S3AccountConfig
 
 
 class StorageConfig(BaseModel):

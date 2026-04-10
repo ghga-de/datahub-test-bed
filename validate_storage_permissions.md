@@ -20,6 +20,7 @@ Create a YAML file with the following configuration. Replace the placeholders wi
 ```yaml
 s3_url_endpoint: "https://<URL>"
 buckets:
+  inbox_bucket: "<bucket_id>"
   interrogation_bucket: "<bucket_id>"
   permanent_bucket: "<bucket_id>"
   outbox_bucket: "<bucket_id>"
@@ -33,6 +34,14 @@ accounts:
     s3_access_key_id: "<key>"
     s3_secret_access_key: "<secret>"
   dcs:
+    name: "<account_name>"
+    s3_access_key_id: "<key>"
+    s3_secret_access_key: "<secret>"
+  ucs:
+    name: "<account_name>"
+    s3_access_key_id: "<key>"
+    s3_secret_access_key: "<secret>"
+  dhfs:
     name: "<account_name>"
     s3_access_key_id: "<key>"
     s3_secret_access_key: "<secret>"
@@ -65,12 +74,16 @@ In the results there are two types of messages in each log level.
 
 Below is an overview of the operations allowed and validated during the run. These operations are tested to confirm that permissions are correctly set, but they do not define detailed policies or ownership. Detailed guidelines will be addressed in a separate SOP.
 
-| **Account** | **Bucket**             | **HeadBucket** | **ListObjects** | **MultipartUpload** | **MultipartCopy**           | **Delete** | **PresignedURL** |
-|-------------|------------------------|----------------|-----------------|---------------------|-----------------------------|-----------|------------------|
-| MASTER      | INTERROGATION_BUCKET  | Yes            | Yes               | Yes                 | -                           | Yes       | -                |
-| MASTER      | PERMANENT_BUCKET      | Yes            | Yes               | -                   | -                           | Yes       | -                |
-| MASTER      | OUTBOX_BUCKET         | Yes            | Yes               | -                   | -                           | Yes       | -                |
-| IFRS        | INTERROGATION_BUCKET  | Yes            | Yes             | -                   | Interrogation → Permanent     | Yes       | -                |
-| IFRS        | PERMANENT_BUCKET      | Yes            | Yes             | Yes                 | Permanent → Outbox            | Yes       | -                |
-| IFRS        | OUTBOX_BUCKET         | Yes            | Yes             | Yes                 | Permanent → Outbox            | -         | -                |
-| DCS         | OUTBOX_BUCKET         | Yes            | Yes             | -                   | -                           | Yes       | Yes             |
+| **Account** | **Bucket**            | **HeadBucket** | **ListObjects** | **MultipartUpload**        | **MultipartCopy**         | **Delete** | **PresignedURL** |
+|-------------|-----------------------|----------------|-----------------|----------------------------|---------------------------|------------|------------------|
+| MASTER      | INBOX_BUCKET          | Yes            | Yes             | Yes                        | -                         | Yes        | -                |
+| MASTER      | INTERROGATION_BUCKET  | Yes            | Yes             | Yes                        | -                         | Yes        | -                |
+| MASTER      | PERMANENT_BUCKET      | Yes            | Yes             | -                          | -                         | Yes        | -                |
+| MASTER      | OUTBOX_BUCKET         | Yes            | Yes             | -                          | -                         | Yes        | -                |
+| UCS         | INBOX_BUCKET          | Yes            | Yes             | Yes                        | -                         | Yes        | -                |
+| DHFS        | INBOX_BUCKET          | Yes            | Yes             | -                          | -                         | -          | Yes (GetObject)  |
+| DHFS        | INTERROGATION_BUCKET  | Yes            | Yes             | Yes (download + re-upload) | -                         | -          | -                |
+| IFRS        | INTERROGATION_BUCKET  | Yes            | Yes             | -                          | Interrogation → Permanent | Yes        | -                |
+| IFRS        | PERMANENT_BUCKET      | Yes            | Yes             | Yes                        | Permanent → Outbox        | Yes        | -                |
+| IFRS        | OUTBOX_BUCKET         | Yes            | Yes             | Yes                        | Permanent → Outbox        | -          | -                |
+| DCS         | OUTBOX_BUCKET         | Yes            | Yes             | -                          | -                         | Yes        | Yes              |
