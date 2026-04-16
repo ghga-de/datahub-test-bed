@@ -15,6 +15,7 @@
 
 """Storage client and related models."""
 
+import base64
 import hashlib
 import logging
 import os
@@ -169,11 +170,17 @@ class StorageClient(BaseBotoClient):
             )
 
     def create_multipart_upload(
-        self, bucket: str, key: str, expect_error=False
+        self, bucket: str, key: str, expect_error=False, checksum_algorithm: str = None
     ) -> str | None:
         """Create a multipart upload and return the upload ID."""
         try:
-            resp = self.s3_client.create_multipart_upload(Bucket=bucket, Key=key)
+            kwargs = {}
+            if checksum_algorithm is not None:
+                kwargs["ChecksumAlgorithm"] = checksum_algorithm
+
+            resp = self.s3_client.create_multipart_upload(
+                Bucket=bucket, Key=key, **kwargs
+            )
             return resp.get("UploadId")
         except botocore.exceptions.ClientError as error:
             error_message = get_error_message(error)
@@ -188,7 +195,7 @@ class StorageClient(BaseBotoClient):
 
     def upload_part(
         self, *, bucket: str, key: str, part_num: int, part_path: str, upload_id: str
-    ) -> str | None:
+    ) -> tuple[str, str] | tuple[None, None]:
         """Upload a part of a file to S3."""
         if not os.path.isfile(part_path):
             logger.error(
@@ -196,20 +203,23 @@ class StorageClient(BaseBotoClient):
                 part_path,
             )
             return None
+
         with open(part_path, "rb") as f:
-            part_sha256 = hashlib.sha256(f.read()).hexdigest()
+            data = f.read()
+
+        sha256_digest = hashlib.sha256(data).digest()
+        sha256_base64 = base64.b64encode(sha256_digest).decode("utf-8")
         try:
-            with open(part_path, "rb") as data:
-                logger.debug("Uploading part %s ...", part_num)
-                resp = self.s3_client.upload_part(
-                    Bucket=bucket,
-                    Key=key,
-                    PartNumber=part_num,
-                    Body=data,
-                    UploadId=upload_id,
-                    ChecksumSHA256=part_sha256,
-                )
-            return resp.get("ETag")
+            logger.debug("Uploading part %s ...", part_num)
+            resp = self.s3_client.upload_part(
+                Bucket=bucket,
+                Key=key,
+                PartNumber=part_num,
+                Body=data,
+                UploadId=upload_id,
+                ChecksumSHA256=sha256_base64,
+            )
+            return resp.get("ETag"), sha256_base64
         except botocore.exceptions.ClientError as error:
             error_message = get_error_message(error)
             log_error(
@@ -218,7 +228,7 @@ class StorageClient(BaseBotoClient):
                 bucket=bucket,
                 error_message=error_message,
             )
-            return None
+            return None, None
 
     def upload_part_copy(  # noqa: PLR0913
         self,
@@ -257,7 +267,7 @@ class StorageClient(BaseBotoClient):
         self, *, bucket: str, file_path: str, key: str, upload_id: str
     ) -> list[dict[str, object]]:
         """Split the file into parts and upload to S3 using NamedTemporaryFile."""
-        etags = []
+        parts = []
         with open(file_path, "rb") as source:
             for part_num in range(1, PART_COUNT + 1):
                 chunk = source.read(PART_SIZE)
@@ -265,7 +275,7 @@ class StorageClient(BaseBotoClient):
                     break
                 with tempfile.NamedTemporaryFile("w+b") as temp_file:
                     temp_file.write(chunk)
-                    etag = self.upload_part(
+                    etag, sha256_base64 = self.upload_part(
                         bucket=bucket,
                         key=key,
                         part_num=part_num,
@@ -281,11 +291,17 @@ class StorageClient(BaseBotoClient):
                             self.profile_name,
                         )
                         return []
-                    etags.append({"ETag": etag, "PartNumber": part_num})
-        return etags
+                    parts.append(
+                        {
+                            "ETag": etag,
+                            "PartNumber": part_num,
+                            "ChecksumSHA256": sha256_base64,
+                        }
+                    )
+        return parts
 
     def complete_multipart_upload(
-        self, *, bucket: str, key: str, upload_id: str, etags: list
+        self, *, bucket: str, key: str, upload_id: str, parts: list
     ) -> bool:
         """Complete a multipart upload with the given parts."""
         try:
@@ -293,7 +309,7 @@ class StorageClient(BaseBotoClient):
                 Bucket=bucket,
                 Key=key,
                 UploadId=upload_id,
-                MultipartUpload={"Parts": etags},
+                MultipartUpload={"Parts": parts},
             )
             return bool(resp.get("Location"))
         except botocore.exceptions.ClientError as error:
@@ -311,7 +327,9 @@ class StorageClient(BaseBotoClient):
     ) -> None:
         """Upload a file to S3 using multipart upload with temporary parts."""
         logger.info(f'Uploading {key} using account "{self.profile_name}"')
-        upload_id = self.create_multipart_upload(bucket, key, expect_error=expect_error)
+        upload_id = self.create_multipart_upload(
+            bucket, key, expect_error=expect_error, checksum_algorithm="SHA256"
+        )
 
         if not upload_id:
             if not expect_error:
@@ -358,7 +376,7 @@ class StorageClient(BaseBotoClient):
             self.profile_name,
         )
         if self.complete_multipart_upload(
-            bucket=bucket, key=key, upload_id=upload_id, etags=part_etags
+            bucket=bucket, key=key, upload_id=upload_id, parts=part_etags
         ):
             logger.info(
                 'Multipart upload completed for bucket "%s" using account "%s"',
@@ -376,7 +394,7 @@ class StorageClient(BaseBotoClient):
         upload_id: str,
     ) -> list[dict[str, object]]:
         """Split an object into parts and copy them to another bucket."""
-        etags = []
+        parts = []
         start = 0
         part_num = 1
         while start < size:
@@ -399,10 +417,10 @@ class StorageClient(BaseBotoClient):
                     self.profile_name,
                 )
                 return []
-            etags.append({"ETag": etag, "PartNumber": part_num})
+            parts.append({"ETag": etag, "PartNumber": part_num})
             start = end + 1
             part_num += 1
-        return etags
+        return parts
 
     def copy_file_multipart(
         self,
@@ -467,7 +485,7 @@ class StorageClient(BaseBotoClient):
             self.profile_name,
         )
         if self.complete_multipart_upload(
-            bucket=dst_bucket, key=dst_key, upload_id=upload_id, etags=etags
+            bucket=dst_bucket, key=dst_key, upload_id=upload_id, parts=etags
         ):
             logger.info(
                 'Multipart copy completed from bucket "%s" to bucket "%s" using account "%s"',
