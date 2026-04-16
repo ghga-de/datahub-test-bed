@@ -28,6 +28,22 @@ cli = typer.Typer(no_args_is_help=True)
 LOG = logging.getLogger(__name__)
 
 
+@cli.callback()
+def configure_cli(
+    log_level: str = typer.Option(
+        "INFO",
+        "--log-level",
+        help="Set the log level (e.g. DEBUG, INFO, WARNING, ERROR, CRITICAL).",
+    ),
+):
+    """Configure global CLI behavior before running any command."""
+    resolved_level = getattr(logging, log_level.upper(), None)
+    if not isinstance(resolved_level, int):
+        raise typer.BadParameter(f"Unsupported log level: {log_level}")
+
+    logging.basicConfig(level=resolved_level, format="%(levelname)s - %(message)s")
+
+
 @cli.command()
 def hello():
     """Command to say hello."""

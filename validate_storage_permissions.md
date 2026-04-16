@@ -10,7 +10,7 @@ The command tests common S3 operations on the configured S3 or Ceph clusters to 
 
 ## Usage
 
-`datahub-test-bed validate-storage-permissions --config-path '/example/config.yaml'`
+`datahub-test-bed --log-level INFO validate-storage-permissions --config-path '/example/config.yaml'`
 
 
 ## Configuration
