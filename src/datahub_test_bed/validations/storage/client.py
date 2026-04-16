@@ -170,7 +170,11 @@ class StorageClient(BaseBotoClient):
             )
 
     def create_multipart_upload(
-        self, bucket: str, key: str, expect_error=False, checksum_algorithm: str = None
+        self,
+        bucket: str,
+        key: str,
+        expect_error=False,
+        checksum_algorithm: str | None = None,
     ) -> str | None:
         """Create a multipart upload and return the upload ID."""
         try:
@@ -202,7 +206,7 @@ class StorageClient(BaseBotoClient):
                 "Part file %s does not exist.",
                 part_path,
             )
-            return None
+            return None, None
 
         with open(part_path, "rb") as f:
             data = f.read()
